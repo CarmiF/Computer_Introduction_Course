@@ -1,0 +1,53 @@
+#include <msp430xG46x.h>     ;define controlled include file
+
+            ORG 1100h
+Arr1        DW    21,80,99,49,18,81,77,13 
+Arr2        DW    31,13,88,65,25,10,52,40
+mod4_ID1    DS16  8  
+mod4_ID2    DS16  8 
+SIZE        DW    Arr2-Arr1
+                            
+            RSEG   CODE                  
+                              
+main        MOV  #Arr1, R5
+            MOV  #Arr2, R6
+            MOV  #mod4_ID1,R7
+            MOV  #mod4_ID2,R8   
+ 
+            MOV   SIZE,R4
+            RRA   R4         
+            JZ    L2             ; if (SIZE == 0) PC = #L2
+L1          MOV   0(R5),R9
+            AND   #0x03,R9
+            JNZ   MOD4_1
+            CLR   0(R7)
+            JMP   L11
+MOD4_1      MOV   #-1,0(R7)
+L11         INCD  R5
+            INCD  R7
+            DEC   R4
+            JNZ   L1
+         
+            MOV   SIZE,R4
+            RRA   R4     
+            JZ    FINALE         ; if (SIZE == 0) PC = #FINALE
+L2          MOV   0(R6),R9
+            AND   #0x03,R9
+            JNZ   MOD4_2
+            CLR   0(R8)
+            JMP   L22
+MOD4_2      MOV   #-1,0(R8)
+L22         INCD  R6
+            INCD  R8
+            DEC   R4
+            JNZ   L2
+         
+FINALE      JMP   $               ; infinite loop                                     
+            NOP                   ; to remove warnings
+            
+;-------------------------------------------------------------------------------
+         COMMON  INTVEC                  ; Interrupt Vectors
+;-------------------------------------------------------------------------------
+         ORG     RESET_VECTOR            ; POR, ext. Reset
+         DW      main
+         END

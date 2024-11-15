@@ -1,0 +1,33 @@
+#include <msp430xG46x.h>   ; define controlled include file
+
+         ORG 1100h
+Matrix   DC16  1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16  
+Lines    DW     4
+Trace    DS32   1
+
+         RSEG   CODE     
+          
+main    mov   #Matrix,R5  
+        clr   R12        ; Trace_LSB
+        clr   R13        ; Trace_MSB
+        mov   Lines,R6   ; R6 = Lines   
+        mov   Lines,R7       
+        inc   R6         ; R6 = Lines+1                 
+        rla   R6         ; R6 = 2(Lines+1)      
+L1    	add   @R5,R12  
+        adc   R13
+        add   R6,R5      ; calculate address to R5             
+        dec   R7                   
+       	jnz   L1
+        mov   #Trace,R5
+        mov   R12,0(R5)
+        mov   R13,2(R5)
+
+L       JMP   L                            ; infinite loop
+        NOP                                ; to remove warnings
+;-------------------------------------------------------------------------------
+        COMMON  INTVEC                   ; Interrupt Vectors
+;-------------------------------------------------------------------------------
+        ORG     RESET_VECTOR            ; POR, ext. Reset
+        DW      main
+        END

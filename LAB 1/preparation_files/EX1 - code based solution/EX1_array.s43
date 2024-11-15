@@ -1,0 +1,49 @@
+#include <msp430xG46x.h>    
+ 
+ORG 1100h
+
+Id1       DW      9,6,2,8,3,5,7,4
+Id2       DW      8,6,3,2,3,2,0,6
+Parity1   DS16    8
+Parity2   DS16    8
+SIZE      DW      8
+
+          RSEG    CODE
+
+main    clr     R4
+        mov     #Id1,R5       ; R5 is an array pointer of Id1
+        mov     #Id2,R6       ; R6 is an array pointer of Id2
+        mov     #Parity1,R7   ; R7 is an array pointer of Parity1
+        mov     #Parity2,R8   ; R8 is an array pointer of Parity2
+        mov     SIZE,R9       ; R9 <- Mem[SIZE]
+        
+L1      mov     @R5,R4        ; R4 <- Mem[R5]
+        RRA     R4
+        jc      L2
+        clr     0(R7)
+        jmp     L12
+L2      mov     #1,0(R7)
+
+L12     mov     @R6,R4       ; R4 <- Mem[R6]
+        RRA     R4
+        jc      L22
+        clr     0(R8)
+        jmp     L3
+L22     mov     #1,0(R8)
+
+L3      incd    R5
+        incd    R6
+        incd    R7
+        incd    R8
+        dec     R9
+        jnz     L1
+        
+e       jmp     e          ; equivalent to "jmp $"
+        nop                ; only for warnings cancellation
+
+;-------------------------------------------------------------------------------
+        COMMON INTVEC ; Interrupt Vectors
+;-------------------------------------------------------------------------------
+        ORG RESET_VECTOR ; POR, ext. Reset
+        DW main
+        END
