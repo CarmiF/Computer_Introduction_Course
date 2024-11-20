@@ -1,0 +1,94 @@
+#include <msp430xG46x.h>
+            ORG 1100h
+Id1         DW 0,8,3,1,4,3,0,2
+Id2         DW 0,6,4,6,3,8,4,6
+SIZE        DW 8
+Result      DS16 1
+
+            RSEG CODE
+
+Main        MOV #Id1,R5           ; R5 is a pointer to the first digit in id1 
+            MOV SIZE,R10          ; R10 will be itaration counter
+            CLR R8                ; R8 will contain the sum of id1
+            CLR R9                ; R9 will contain the sum of id2
+            MOV #0,R4             ; Set R4 to 0
+            MOV #Result,R12       ; R12 is a pointer to the address saved for the result
+            
+            ; sum of id1
+Loop1       MOV @R5+,R7           ; Load the value pointed to by R5 into R7, then increment R5 to point to the next digit.  
+            ADD R7,R8             ; Add the value stores in R7 to the sum of id1.
+            DEC R10               ; Decrease the iteration counter by 1 
+            JZ SumId2             ; Check if R10==0 and iteration ended
+            JMP Loop1             ; Running the sum loop again
+            
+            ; sum of id2
+SumId2      MOV #Id2,R5           ; R5 is a pointer to the first number in id2
+            MOV SIZE,R10          ; reset the itaration counter 
+            
+Loop2       MOV @R5+,R7           ; Load the value pointed to by R5 into R7, then increment R5 to point to the next digit.  
+            ADD R7,R9             ; Add the value stores in R7 to the sum of id2.
+            DEC R10               ; Decrease the iteration counter by 1 
+            JZ Id1Check           ; Check if R10==0 and iteration ended
+            JMP Loop2             ; Running the sum loop again
+            
+            ; Check if id1 is even
+Id1Check    CLR R6 
+            ADD R8,R6             ; Add R8 to R6. This is necessary because the sum will be lost from R6 when its evenness will be checked.
+            AND #1,R6             ; If the outcome will be 0 - the sum of id1 is even, else - odd.
+            JZ Id1Even
+            JMP Id1Odd
+            
+            ; id1 even-> check if id2 is even
+Id1Even     CLR R6
+            ADD R9,R6             ; Add R9 to R6. This is necessary because the sum will be lost from R6 when its evenness will be checked.
+            AND #1,R6             ; If the outcome will be 0 - the sum of id2 is even, else - odd.
+            JZ Id2Even
+            JMP Id1Win
+            
+            ; id1 odd-> check if id2 is even
+Id1Odd      CLR R6
+            ADD R9,R6             ; The condition on the sum of id2 will be checked on R6 so R9 will not change.
+            AND #1,R6             ; If 0 - the sum of id2 is even, else - odd.
+            JZ Id2Win
+            CLR 0(R12)            ; R12 holds the result's address. result will set to 0 when both sums are odd. 
+            JMP E
+            
+            ; id1 and id2 even-> check which one is smaller   
+Id2Even     CMP R8,R9             ; (R9 - R8)  
+            JGE Id1Win 
+            JMP Id2Win
+            
+            ; id1 is the smallest even
+Id1Win      MOV R8,0(R12)
+            MOV R8,R4
+            JMP E
+            
+            ; id2 is the smallest even
+Id2Win      MOV R9,0(R12)
+            MOV R9,R4
+
+E           JMP E
+            NOP
+          
+            COMMON INTVEC
+            ORG RESET_VECTOR
+            DW Main
+            END
+      
+      
+      
+
+
+ 
+  
+   
+     
+     
+     
+      
+     
+
+
+
+  
+

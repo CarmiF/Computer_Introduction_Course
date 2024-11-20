@@ -1,0 +1,58 @@
+#include <msp430xG46x.h>
+
+                            ORG 1100h
+arr1                        DW 21,80,3,49,18,81,77,13
+arr2                        DW 31,13,6,65,25,10,52,40
+SIZE                        DW 8
+Identical_indices_amount    DS16 8
+
+
+                            RSEG CODE
+Main                        MOV #arr1,R4                         ; R4 points to the first element in arr1 
+                            MOV #arr2,R5                         ; R5 points to the first element in arr2  
+                            MOV #Identical_indices_amount,R13    ; R13 points to the first saved address of the result array
+                            MOV SIZE,R12                         ; R12 is the iteration counter for the outer loop
+
+OuterLoop                   MOV 0(R4),R6                         ; R6 holds the value from arr1
+                            MOV 0(R5),R7                         ; R7 holds the value from arr2 
+                            CLR R10                              ; R10 will sum the identical bits for each index
+                            
+                            MOV #16,R11                          ; R11 is the iteration counter for the inner loop
+
+InnerLoop                   CLR R8                               ; R8 is the condition checker for R6
+                            
+                            RRA R6                               ; the carry is seted according to the current LSB from arr1 value
+                            ADC R8                               ; the condition checker for R6 is seted                              
+                            CLR R9                               ; R9 is the condition checker for R7
+                            
+                            RRA R7                               ; the carry is seted acording to the current LSB from arr2 value
+                            ADC R9                               ; the condition checker for R6 is seted 
+                            CMP R8,R9                            ; check if the bits are identical
+                            JZ YesIdentical
+                            DEC R11
+                            JZ NextIter
+                            JMP InnerLoop
+              
+YesIdentical                INC R10
+                            DEC R11
+                            JZ NextIter
+                            JMP InnerLoop
+              
+NextIter                    MOV R10,0(R13)
+                            INCD R13                            ; R13 points to the address saved for next element in the result array
+                            INCD R4                             ; R4 points to the next element in arr1  
+                            INCD R5                             ; R5 points to the next element in arr2
+                            DEC R12
+                            JNZ OuterLoop 
+
+E                           JMP E
+                            NOP 
+              
+              
+              
+                            COMMON INTVEC
+                            ORG RESET_VECTOR
+                            DW Main
+                            END
+            
+              
