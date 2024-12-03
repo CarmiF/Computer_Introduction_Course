@@ -1,0 +1,30 @@
+#include <msp430xG46x.h>   ;define controlled include file
+
+          ORG 1100h
+Str       DB "HELLO WORLD"
+
+          RSEG   CSTACK      ; defines stack segment of 80 words (default)
+          RSEG   CODE        ; ORG 0x2100 - place program in 'CODE' segment in to Flash memory
+                              
+Main      MOV   #SFE(CSTACK),SP   ; mov #0x2100,SP 
+          MOV   #Str,R5
+          CLR   R6
+          CALL  #Func
+L1        JMP   L1
+;-----------------------------------
+;       Recursive Routine
+;-----------------------------------
+Func       TST.B  0(R5)
+           JZ     Finish
+           PUSH.B @R5
+           INC    R5
+           CALL   #Func
+           POP.B  Str(R6)
+           INC    R6  
+Finish     RET   
+;-------------------------------------------------------------------------------
+          COMMON  INTVEC                  ; Interrupt Vectors
+;-------------------------------------------------------------------------------
+          ORG     RESET_VECTOR            ; POR, ext. Reset
+          DW      Main
+          END

@@ -1,0 +1,56 @@
+#include <msp430xG46x.h>   
+
+              ORG 1100h
+arr1          DW 21,80,3,49,18,81,77,13            
+arr2          DW 31,13,6,65,25,10,52,40          
+
+SIZE          DW 8
+arr_mix       DS16 8
+
+              RSEG CSTACK             
+              RSEG CODE
+Main          MOV #SFE(CSTACK), SP         ; initialize stack and SP as pointer to the head of the stack                                                             
+              
+              PUSH.W    #arr1              ; Push arr1 address into the stack
+              PUSH.W    #arr2              ; Push arr2 address into the stack
+              PUSH.W    SIZE               ; Push the size of the arrays into the stack - woll us at the iteration counter
+              
+              CALL #mixArr
+              MOV  #arr_mix, R9
+              ADD #6,SP                    ; make the stack empty after finishing the work with the function
+
+              
+L             JMP       L
+;-------------------
+; Routine
+;--------------------
+mixArr        MOV 2(SP),R6                        ; R6 is the iteration counter
+              MOV 4(SP),R7                        ; R7 is the pointer to the arr2 
+              MOV 6(SP),R8                        ; R8 is the pointer to the arr1
+              CLR R9                              ; R9 is shift to the result array
+             
+              
+        
+LOOP          MOV    @R7+,R10                   ; R10 holds the value from arr2, R7 points to the next element in arr2 
+              MOV    @R8+,R11                   ; R11 holds the value from arr1, R8 points to the next element in arr1
+              RLA R10                           ; RLA (arr2 element)
+              RLA R10                           ; RLA again
+              XOR R10,R11
+              MOV R11,arr_mix(R9)               ; storing the result of the xor according to the shift needed
+              INCD R9                           ; increase the shift by 2
+              DEC R6                            ; decrease the iteration counter
+              JNZ LOOP
+              RET
+              
+              
+             
+
+
+                     
+           
+;-------------------------------------------------------------------------------
+          COMMON  INTVEC                 
+;-------------------------------------------------------------------------------
+          ORG     RESET_VECTOR           
+          DW      Main
+          END

@@ -1,0 +1,59 @@
+#include <msp430xG46x.h>   
+
+              ORG   1100h
+Id1           DW 0,6,4,6,3,8,4,6            
+Id2           DW 0,8,3,1,4,3,0,2          
+
+SIZE          DW  8
+num           DS16  1
+
+              RSEG CSTACK             
+              RSEG CODE
+Main          MOV       #SFE(CSTACK), SP        ; initialize stack and SP as pointer to the head of the stack                                                             
+              PUSH.W    #Id1                    ; Push Id1 address into the stack
+              PUSH.W    #Id2                    ; Push Id2 address into the stack
+              PUSH.W    SIZE                    ; Push the size of the arrays into the stack
+              CALL      #Func                   ; call the function that compares and sums the highest digit among the relative digits
+
+              POP.W     num                     ;pop out the sum to the place saved by num
+L             JMP       L
+;-------------------
+; Routine
+;--------------------
+Func          POP.W  R13                       ; pop out the address to return, to continue the main part         
+              POP.W  R4                        ; pop out the size of the arrays - R4 will use as a counter for the loop
+              POP.W  R5                        ; pop out Id2 array address
+              POP.W  R6                        ; pop out Id1 array address            
+             
+              CLR R12                          ; R12 will store the sum of the greater digits
+        
+LOOP          MOV    @R5+,R10                   ; add the value in R5 to R10 and forward R5 
+              MOV    @R6+,R11                   ; add the value in R6 to R11 and forward R6 
+              CMP    R11, R10                   ; compare R11 to R10
+              JGE    Add_Id2_To_Sum             ; If R10 is greater jump
+              JMP    Add_Id1_To_Sum             ; If R11 is greater jump
+             
+
+GoBack        PUSH.W R12                        ; Push to the stack the sum from R12
+              PUSH.W R13                        ; Push to the stack the address to continue the code 
+              RET 
+
+;The greater digit is in Id2 - add it to the sum 
+Add_Id2_To_Sum   ADD R10, R12                   ; Add the digit to the sum   
+                 DEC R4                         ; Decrease the iteration counter
+                 JZ GoBack                      ; If counter ended go to GoBack 
+                 JMP LOOP                       ; else continue loop
+          
+;The greater digit is in Id1 - add it to the sum            
+Add_Id1_To_Sum   ADD R11, R12                   ; Add the digit to the sum   
+                 DEC R4                         ; Decrease the iteration counter
+                 JZ GoBack                      ; If counter ended go to GoBack 
+                 JMP LOOP                       ; else continue loop
+                     
+           
+;-------------------------------------------------------------------------------
+          COMMON  INTVEC                 
+;-------------------------------------------------------------------------------
+          ORG     RESET_VECTOR           
+          DW      Main
+          END
