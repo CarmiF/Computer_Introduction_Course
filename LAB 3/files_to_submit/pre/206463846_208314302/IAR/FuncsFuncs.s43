@@ -1,0 +1,47 @@
+#include "msp430g2553.h"
+
+               ; Define module for helper functions
+                MODULE  HelperFuncs
+                PUBLIC  Delay1sec,ResetCounter,SetCounter,   ; Expose functions for external use
+                RSEG    CODE                                ; Code segment begins
+
+               
+               
+
+Delay1sec     
+                MOV #0x05, R6                
+OuterLoop       MOV #0xFFFF, R7              
+InnerLoop       DEC R7                       
+                JNZ InnerLoop                
+                DEC R6                       
+                JNZ OuterLoop                
+                MOV #0x5547, R6              ; additional delay                      
+CompleteLoop    DEC R6                       
+                JNZ CompleteLoop             ; Repeat the loop until R6 reaches 0
+                RET                        
+
+
+ResetCounter    
+                CMP #0x00FF, R5             
+                JZ Reset                    
+                MOV #1,R10                  ; additonal MOV for accuracy
+                RET                         
+
+Reset           CLR R5                      
+                RET                         
+
+
+SetCounter      
+                CMP #0x0000,R5             
+                JZ SetFF                   
+                MOV #1,R10                 ; additonal MOV for accuracy
+                MOV #1,R10                 ; Dadditonal MOV for accuracy
+                RET                        
+
+SetFF           MOV #0x00FF,R5            
+                RET                       
+
+                ENDMOD                                    ; End of module
+
+;=============================================================
+                END

@@ -1,0 +1,167 @@
+#include "msp430g2553.h"
+
+
+              NAME  Main
+              PUBLIC  Main
+              EXTERN Delay1sec,ResetCounter,SetCounter        
+
+
+
+              ORG 200h
+
+
+              ORG 0C000h 
+
+
+Main          MOV #0400h,SP                  ; Initialize the stack pointer
+StopWDT       MOV #WDTPW+WDTHOLD,&WDTCTL     
+
+              MOV.B #0x00,&P1SEL             ; Set all P1 pins to GPIO mode
+              MOV.B #0x80,&P1DIR             ; Set P1.7 (MSB) as output, others as input
+              MOV.B #0x00,&P1OUT             ; Set P1 output to 0
+             
+              MOV.B #0x00,&P2SEL             ; Set all P2 pins to GPIO mode
+              MOV.B #0xFF,&P2DIR             ; Set all P2 pins as output
+              MOV.B #0x00,&P2OUT             ; Set P2 output to 0
+
+              CLR R6                         
+
+
+ChkSW         MOV.B &P1IN,R6                 ; Read P1 inputs into R6
+              AND #0x000F,R6                 ; make sure R6 has only the rellevant bits for switches
+
+              CMP #1,R6                      
+              JZ Val1Op                      ; Jump to operation 1 for value 1
+
+              CMP #2,R6                      
+              JZ Val2Op                      ; Jump to operation 2 for value 2
+
+              CMP #4,R6                      
+              JZ Val4Op                      ; Jump to operation 4 for value 4
+              
+              CMP #8,R6                      
+              JZ Val8Op                      ; Jump to operation 4 for value 4
+
+              JMP TurnOff                    ; Turn off LEDs if no valid switch value
+
+
+Val1Op        CLR R5                         ; Clear R5 (will use for counting)
+BinaryCntUp   MOV.B R5,&P2OUT                ; Output R5 value to P2 LEDs
+              CALL #Delay1sec                ; delay
+              CALL #ResetCounter             ; Check if R5 reached 0xFF, reset if true
+              INC R5                         ; Increment counter
+              MOV.B &P1IN,R6                 ; Read P1 switches
+              AND #0x000F,R6                 ; make sure R6 has only the rellevant data for switches
+              CMP #1,R6                      ; Check if switch value is still 1
+              JZ BinaryCntUp                 ; Repeat counting if switch is still 1
+              JMP ChkSW                      ; Return to switch check
+
+
+Val2Op        MOV #0xFF, R5                  ; Initialize R5 to 0xFF (maximum count)
+BinaryCntDown MOV.B R5,&P2OUT                ; Output R5 value to P2 LEDs
+              CALL #Delay1sec                ; delay
+              CALL #SetCounter               ; Check if R5 reached 0x00, set if true
+              DEC R5                         ; Decrement counter
+              MOV.B &P1IN,R6                 ; Read P1 switches
+              AND #0x000F,R6                 ; make sure R6 has only the rellevant bits for switches
+              CMP #2,R6                      ; Check if switch value is still 2
+              JZ BinaryCntDown               ; Repeat counting down if switch is still 2
+              JMP ChkSW                      ; Return to switch check
+
+
+Val4Op        MOV.B #0x80,P1OUT              
+              MOV #281,R7                    
+              MOV #1,R10                      ; additonal MOV for accuracy
+              MOV #1,R10                      ; additonal MOV for accuracy
+LWait1        DEC R7                         
+              JNZ LWait1                     
+              MOV.B #0x00,P1OUT              
+              MOV #89,R7 
+              
+              
+LWait2        DEC R7                         
+              JNZ LWait2 
+              MOV #1,R10                      ; additonal MOV for accuracy
+              
+              MOV.B &P1IN,R6                 
+              AND #0x000F,R6                 ; make sure R6 has the only rellevant bits
+              CMP #4,R6                      ; Check if switch value is still 4
+              JZ Val4Op                      
+              JMP ChkSW                      ; Return to switch check
+              
+
+              ; Wave 800Hz
+Val8Op        MOV #4000,R11                  ; 5 sec iteration counter (for T=1.25ms) -> 5000ms/1.25ms = 4000 iterations
+              
+DoAgain       XOR.B #0x80,&P1OUT             ; change the wave value
+              ; Delay : 1134 cycles in T=1ms -> for T=1.25ms we need: 1134*1.25~1417 cycles
+              ;----------------------------------------------------------------------------
+              ; 1 Logi
+              ; for DC=25%: 
+              ; we need : 1417/4~354 cycles
+              ; delay = ax+b
+              MOV #115,R7                    ;  2 cycles = b1                               
+LWait81       DEC R7                         ; iter delay : 'DEC' + 'JNZ' = 3 cycles -> 115*3=345
+              JNZ LWait81
+              
+              XOR.B #0x80,&P1OUT              ;  5 cycles = b2
+              ;delay = 3*115+7=352
+              ;----------------------------------------------------------------------------
+              ; 0 Logi
+              ; we need : (1417/4)*3 =1062.75 cycles
+              ; delay = ax+b
+              
+              MOV #348,R7                    ;  2 cycles = b1
+LWait82       DEC R7                         ; iter delay : 'DEC' + 'JNZ' = 3 cycles -> 348*3=1044
+              JNZ LWait82 
+              
+              DEC R11                        ;  1 cycles = b1
+              JZ NextKind                    ;  2 cycles = b2 **********calculation for comments stoped here in Roee's order 
+             
+              MOV.B &P1IN,R6                 
+              AND #0x000F,R6                ; make sure R6 has the only rellevant bits
+              CMP #8,R6                      ; Check if switch value is still 4
+              JZ DoAgain                      
+              JMP ChkSW                      ; Return to switch check
+
+
+NextKind      MOV #8000,R11                  ; 5 sec iteration counter (for T=0.625ms) -> 5000ms/0.625ms = 8000 iterations
+              
+NextKindLp    XOR.B #0x80,&P1OUT              
+              MOV #176,R7                    
+LWait811      DEC R7                         
+              JNZ LWait811
+              
+            
+              
+              XOR.B #0x80,&P1OUT              
+              
+              MOV #52,R7 
+LWait822      DEC R7                         
+              JNZ LWait822 
+              
+              DEC R11
+              JZ Val8Op
+             
+              MOV.B &P1IN,R6                 
+              AND #0x000F,R6                 ; make sure R6 has the only rellevant bits
+              CMP #8,R6                      ; Check if switch value is still 4
+              JZ NextKindLp                      
+              JMP ChkSW                      ; Return to switch check
+
+
+
+TurnOff       CLR.B &P2OUT                   ; Clear all P2 outputs
+              CLR.B &P1OUT                   ; Clear all P1 outputs
+              JMP ChkSW                      ; Return to switch check
+
+
+E             JMP E
+              NOP                           
+
+
+              COMMON INTVEC
+              ORG RESET_VECTOR
+              DW Main                        
+
+              END
