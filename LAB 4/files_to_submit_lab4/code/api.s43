@@ -1,0 +1,45 @@
+#include  "bsp.h"
+#include "msp430g2553.h"
+
+             MODULE API
+             PUBLIC IncLED,PrintSWs2LEDs, RlaLED
+             EXTERN Print2LEDs,ReadSWs
+            
+             RSEG   CODE
+;-------------------------------------------------------------
+;             LEDs Increment counting 
+;-------------------------------------------------------------
+IncLED       cmp.b     #0xFF,LEDsArrPort                  
+             jz     reset1
+             inc.b   LEDsArrPort           
+             ret
+
+reset1        mov.b 0x00, LEDsArrPort
+              ret
+;-------------------------------------------------------------
+;             LEDs move left? counting
+;-------------------------------------------------------------
+RlaLED       cmp.b  #0x80,LEDsArrPort                    
+             jz     reset2
+             rla.b   LEDsArrPort
+             ret
+
+
+reset2       clr.b   LEDsArrPort
+             inc.b   LEDsArrPort
+             ret
+;-------------------------------------------------------------
+;            Print SWs value onto LEDs
+;-------------------------------------------------------------
+PrintSWs2LEDs 
+             ;R4=ReadSWs()
+             call   #ReadSWs
+             pop    R4
+             ;Print2LEDs(R4)
+             push   R4
+             call   #Print2LEDs
+             
+             ret
+;-------------------------------------------------------------
+             ENDMOD    
+             END

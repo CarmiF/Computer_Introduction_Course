@@ -1,0 +1,128 @@
+#include  "bsp.h"
+#include "msp430g2553.h"
+
+             NAME   MAIN
+             PUBLIC state,main
+             EXTERN SysConfig,ClrLEDs,IncLED,DecLED,delay, delay0_5sec, RlaLED
+             EXTERN PrintLEDs,ReadSWs,PrintSWs2LEDs
+             
+;----------------------------------------------------------------------------------
+             ORG      DataSegStart         ; Begins a DATA segment
+             
+state        DW   0                        ; state variable
+ledState1    DB   0
+ledState2    DB   0x01
+
+
+;-------------------------------------------------------------------------------------          
+             ;RSEG    CSTACK    ; shows to compiler where is the RAM populating limit
+                                ; can be ignored
+;-------------------------------------------------------------------------------------
+             ORG     CodeSegStart       ; Program Reset = Begins a CODE segment
+             
+main         mov.w   #StackTosStart,SP  ; Initialize stack pointer to the RAM end 
+             call    #SysConfig
+             clr     state              ; set to idle state at the beginning
+;---------------------- FSM_loop -------------------------------------
+state0       cmp     #0x00,state         ;check if state0           
+             jnz     state1
+             call    #PrintSWs2LEDs
+             bis.w   #CPUOFF+GIE,SR 
+
+state1       cmp     #0x01,state         ;check if state1
+             jnz     state2
+             mov.b   ledState1,LEDsArrPort
+             mov.b   #20, R10
+             DINT
+             
+             
+L1           call    #IncLED           ;infinite function 
+             mov.b    LEDsArrPort,ledState1
+             push    #delay62_5ms
+             call    #delay0_5sec
+             dec     R10
+             jz      GoToSleep     
+             
+             JMP     L1
+             EINT
+             
+            
+state2       cmp     #0x02,state         ;check if state2
+             jnz     state0  
+             DINT
+             mov.b   ledState2,LEDsArrPort
+             mov.b   #20, R10
+L2           
+             push    #delay62_5ms
+             call    #delay0_5sec
+                         
+             call    #RlaLED           ;infinite function 
+             mov.b    LEDsArrPort,ledState2
+             
+             dec     R10
+             jz      GoToSleep     
+             
+             JMP     L2
+             EINT
+             
+state3        cmp     #0x03,state         ;check if state2
+              jnz     state0  
+Val8Op        MOV #4000, R11                 ; 5 sec iteration counter (for T=1ms) -> 5000ms/1ms = 5000 iterations
+
+DoAgain       XOR.B #0x80, &P1OUT           ; Toggle the output for the square wave
+              ; Delay for 1 kHz square wave with 70% duty cycle (T = 1 ms)
+              ; 70% of 1 ms = 0.7 ms (high), 30% = 0.3 ms (low)
+              
+              ; --- High Period (0.7 ms) ---
+              ; Delay for 0.7 ms (cycles = 0.7 ms / clock period)
+              MOV #210, R7                  ; Calculate delay cycles (e.g., for 3 cycles per loop)
+LWaitHigh1    DEC R7                        ; Decrement R7
+              JNZ LWaitHigh1                ; Repeat until R7 = 0
+              
+              XOR.B #0x80, &P1OUT           ; Toggle output for low period
+
+              ; --- Low Period (0.3 ms) ---
+              ; Delay for 0.3 ms (cycles = 0.3 ms / clock period)
+              MOV #90, R7                   ; Calculate delay cycles
+LWaitLow1     DEC R7                        ; Decrement R7
+              JNZ LWaitLow1                 ; Repeat until R7 = 0
+              
+              DEC R11                       ; Decrement the 5-second counter
+              JNZ DoAgain                   ; Repeat until 5 seconds are over
+
+NextKind      MOV #8000, R11                ; 5 sec iteration counter (for T=0.5ms) -> 5000ms/0.5ms = 10000 iterations
+
+NextKindLp    XOR.B #0x80, &P1OUT           ; Toggle the output for the square wave
+              ; Delay for 2 kHz square wave with 70% duty cycle (T = 0.5 ms)
+              ; 70% of 0.5 ms = 0.35 ms (high), 30% = 0.15 ms (low)
+
+              ; --- High Period (0.35 ms) ---
+              ; Delay for 0.35 ms (cycles = 0.35 ms / clock period)
+              MOV #105, R7                  ; Calculate delay cycles
+LWaitHigh2    DEC R7                        ; Decrement R7
+              JNZ LWaitHigh2                ; Repeat until R7 = 0
+
+              XOR.B #0x80, &P1OUT           ; Toggle output for low period
+
+              ; --- Low Period (0.15 ms) ---
+              ; Delay for 0.15 ms (cycles = 0.15 ms / clock period)
+              MOV #45, R7                   ; Calculate delay cycles
+LWaitLow2     DEC R7                        ; Decrement R7
+              JNZ LWaitLow2                 ; Repeat until R7 = 0
+
+              DEC R11                       ; Decrement the 5-second counter
+              JNZ NextKindLp                ; Repeat until 5 seconds are over
+
+              JMP Val8Op                    ; Restart the sequence
+
+             
+               
+
+
+GoToSleep    
+             mov     #0x00, state
+             
+             
+             jmp     state0       
+                 
+             END
