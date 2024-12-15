@@ -12,7 +12,7 @@
 state        DW   0                        ; state variable
 ledState1    DB   0
 ledState2    DB   0x01
-ledState3    DB   0x03
+
 
 
 ;-------------------------------------------------------------------------------------          
