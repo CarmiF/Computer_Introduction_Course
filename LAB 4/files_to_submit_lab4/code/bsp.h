@@ -13,7 +13,7 @@
 #define   compleateTo0_5sec      0xAAA3
 
 // LEDs abstraction
-#define LEDsArrPort        &P1OUT
+#define LEDsArrPortPORT        &P1OUT
 #define LEDsArrPortDir     &P1DIR
 #define LEDsArrPortSel     &P1SEL
 
