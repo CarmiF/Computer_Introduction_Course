@@ -50,11 +50,11 @@
         </option>
         <option>
           <name>RTDescription</name>
-          <state>Use the normal configuration of the C/EC++ runtime library. No locale interface, C locale, no file descriptor support, no multibytes in printf and scanf, and no hex floats in strtod.</state>
+          <state>Do not link with a runtime library.</state>
         </option>
         <option>
           <name>RTConfigPath</name>
-          <state>$TOOLKIT_DIR$\LIB\DLIB\dl430xsfn.h</state>
+          <state></state>
         </option>
         <option>
           <name>RTLibraryPath</name>
@@ -97,7 +97,7 @@
         </option>
         <option>
           <name>OGChipSelectMenu</name>
-          <state>MSP430FG4618	MSP430FG4618</state>
+          <state>MSP430G2553	MSP430G2553</state>
         </option>
         <option>
           <name>GStackHeapOverride</name>
@@ -648,7 +648,7 @@
         </option>
         <option>
           <name>OutputFile</name>
-          <state>study_pre1.d43</state>
+          <state>proj_lab4.d43</state>
         </option>
         <option>
           <name>OutputFormat</name>
@@ -842,7 +842,7 @@
         </option>
         <option>
           <name>ExtraOutputFile</name>
-          <state>study_pre1.a43</state>
+          <state>proj_lab4.a43</state>
         </option>
         <option>
           <name>ExtraOutputFormat</name>
@@ -1885,7 +1885,19 @@
     </settings>
   </configuration>
   <file>
-    <name>$PROJ_DIR$\mySum.s43</name>
+    <name>$PROJ_DIR$\code\api.s43</name>
+  </file>
+  <file>
+    <name>$PROJ_DIR$\code\bsp.h</name>
+  </file>
+  <file>
+    <name>$PROJ_DIR$\code\bsp.s43</name>
+  </file>
+  <file>
+    <name>$PROJ_DIR$\code\hal.s43</name>
+  </file>
+  <file>
+    <name>$PROJ_DIR$\code\main.s43</name>
   </file>
 </project>
 
