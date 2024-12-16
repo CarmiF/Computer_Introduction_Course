@@ -1,18 +1,21 @@
-﻿
-
-
-# IAR build output
-*.out
-*.hex
-*.elf
-*.map
-*.lst
-*.dbg
-*.d79
+﻿# Build output
+Debug/
+settings/
 *.dep
 *.obj
+*.map
+*.out
+*.hex
+*.bin
+*.lst
 
 # Temporary files
-*.bak
 *.tmp
+*.bak
 *.~*
+
+# Generated settings
+path
+
+proj_lab4
+proj_lab4.*
