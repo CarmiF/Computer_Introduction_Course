@@ -1,8 +1,18 @@
-﻿LAB 4/files_to_submit/settings
+﻿
+
+
+# IAR build output
+*.out
+*.hex
+*.elf
+*.map
+*.lst
+*.dbg
+*.d79
 *.dep
-LAB 4/files_to_submit/Debug
-LAB 4/files_to_submit/proj_lab4.ewd
-LAB 4/files_to_submit/Debug
-*.ewd
-LAB 4/files_to_submit/Debug
-LAB 4/files_to_submit/proj_lab4.ewd
+*.obj
+
+# Temporary files
+*.bak
+*.tmp
+*.~*
