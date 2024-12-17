@@ -73,58 +73,48 @@ L2
 state3        cmp     #0x03,state         ;check if state2
               jnz     state0  
               inc.b   LEDsArrPort
-            
+              bis.b   0x80, &P2OUT
+              EINT
 
-Val8Op        MOV #4000,R11                  ; 5 sec iteration counter (for T=1.25ms) -> 5000ms/1.25ms = 4000 iterations
+
+Val8Op        MOV #5000,R11                  ; 5 sec iteration counter (for T=1.25ms) -> 5000ms/1.25ms = 4000 iterations
               
 DoAgain       XOR.B #0x80,&P2OUT             ; change the wave value
               ; Delay : 1134 cycles in T=1ms -> for T=1.25ms we need: 1134*1.25~1417 cycles
               ;----------------------------------------------------------------------------
-              ; 1 Logi
-              ; for DC=25%: 
-              ; we need : 1417/4~354 cycles
-              ; delay = ax+b
-              MOV #115,R7                    ;  2 cycles = b1                               
+
+              MOV #264,R7                    ;  2 cycles = b1                               
 LWait81       DEC R7                         ; iter delay : 'DEC' + 'JNZ' = 3 cycles -> 115*3=345
               JNZ LWait81
               
               XOR.B #0x80,&P2OUT              ;  5 cycles = b2
-              ;delay = 3*115+7=352
-              ;----------------------------------------------------------------------------
-              ; 0 Logi
-              ; we need : (1417/4)*3 =1062.75 cycles
-              ; delay = ax+b
               
-              MOV #348,R7                    ;  2 cycles = b1
+              MOV #100,R7                    ;  2 cycles = b1
 LWait82       DEC R7                         ; iter delay : 'DEC' + 'JNZ' = 3 cycles -> 348*3=1044
               JNZ LWait82 
               
               DEC R11                        ;  1 cycles = b1
               JZ NextKind                    ;  2 cycles = b2 **********calculation for comments stoped here in Roee's order 
-             
+              jmp DoAgain
                                ; Return to switch check
 
 
-NextKind      MOV #8000,R11                  ; 5 sec iteration counter (for T=0.625ms) -> 5000ms/0.625ms = 8000 iterations
-              
+NextKind      MOV #10000,R11                  ; 5 sec iteration counter (for T=0.625ms) -> 5000ms/0.625ms = 8000 iterations
+              bis.b   0x80, &P2OUT 
 NextKindLp    XOR.B #0x80,&P2OUT              
-              MOV #176,R7                    
+              MOV #132,R7                    
 LWait811      DEC R7                         
               JNZ LWait811
               
-            
-              
               XOR.B #0x80,&P1OUT              
               
-              MOV #52,R7 
+              MOV #56,R7 
 LWait822      DEC R7                         
               JNZ LWait822 
               
               DEC R11
-              JZ Val8Op
-             
-                               
-              JMP Val8Op                      ; Return to switch check
+              JZ Val8Op      
+              JMP NextKindLp                      ; Return to switch check
          ; Restart the sequence
 
              
