@@ -24,16 +24,22 @@
 #define SWmask             0x0F
 
 // PushButtons abstraction
-#define PBsArrPort	   &P2IN 
-#define PBsArrIntPend	   &P2IFG 
-#define PBsArrIntEn	   &P2IE
-#define PBsArrIntEdgeSel   &P2IES
 #define PBsArrPortSel      &P2SEL 
 #define PBsArrPortDir      &P2DIR 
-#define PB0                0x10
-#define PB1                0x20
-#define PB2                0x40
-#define PB3                0x80
+#define PBsArrIntEdgeSel   &P2IES
+
+#define PBsArrIntEn	   &P2IE
+#define PBsArrIntPend	   &P2IFG
+#define PBsArrPort	   &P2IN 
+ 
+
+
+
+
+#define PB0                0x01
+#define PB1                0x02
+#define PB2                0x04
+
 
 #endif
 

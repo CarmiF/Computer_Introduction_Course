@@ -2,7 +2,7 @@
 #include "msp430g2553.h"
 
              NAME   MAIN
-             PUBLIC state,main
+             PUBLIC state,main, clickCounter
              EXTERN SysConfig,ClrLEDs,IncLED,DecLED,delay, delay0_5sec, RlaLED
              EXTERN PrintLEDs,ReadSWs,PrintSWs2LEDs
              
@@ -12,6 +12,7 @@
 state        DW   0                        ; state variable
 ledState1    DB   0
 ledState2    DB   0x01
+clickCounter DB   0
 
 
 
@@ -24,10 +25,13 @@ ledState2    DB   0x01
 main         mov.w   #StackTosStart,SP  ; Initialize stack pointer to the RAM end 
              call    #SysConfig
              clr     state              ; set to idle state at the beginning
+             bis.w   #CPUOFF+GIE,SR
+
 ;---------------------- FSM_loop -------------------------------------
 state0       cmp     #0x00,state         ;check if state0           
              jnz     state1
-             call    #PrintSWs2LEDs
+             clr.b    LEDsArrPort
+             ;call    #PrintSWs2LEDs
              bis.w   #CPUOFF+GIE,SR 
 
 state1       cmp     #0x01,state         ;check if state1
@@ -39,7 +43,7 @@ state1       cmp     #0x01,state         ;check if state1
              
 L1           call    #IncLED           ;infinite function 
              mov.b    LEDsArrPort,ledState1
-             push    #delay62_5ms
+             push    #0XB83E
              call    #delay0_5sec
              dec     R10
              jz      GoToSleep     
@@ -49,12 +53,12 @@ L1           call    #IncLED           ;infinite function
              
             
 state2       cmp     #0x02,state         ;check if state2
-             jnz     state0  
+             jnz     state3  
              DINT
              mov.b   ledState2,LEDsArrPort
              mov.b   #20, R10
 L2           
-             push    #delay62_5ms
+             push    #0XB83E
              call    #delay0_5sec
                          
              call    #RlaLED           ;infinite function 
@@ -68,62 +72,71 @@ L2
              
 state3        cmp     #0x03,state         ;check if state2
               jnz     state0  
-Val8Op        MOV #4000, R11                 ; 5 sec iteration counter (for T=1ms) -> 5000ms/1ms = 5000 iterations
+              inc.b   LEDsArrPort
+            
 
-DoAgain       XOR.B #0x80, &P1OUT           ; Toggle the output for the square wave
-              ; Delay for 1 kHz square wave with 70% duty cycle (T = 1 ms)
-              ; 70% of 1 ms = 0.7 ms (high), 30% = 0.3 ms (low)
+Val8Op        MOV #4000,R11                  ; 5 sec iteration counter (for T=1.25ms) -> 5000ms/1.25ms = 4000 iterations
               
-              ; --- High Period (0.7 ms) ---
-              ; Delay for 0.7 ms (cycles = 0.7 ms / clock period)
-              MOV #210, R7                  ; Calculate delay cycles (e.g., for 3 cycles per loop)
-LWaitHigh1    DEC R7                        ; Decrement R7
-              JNZ LWaitHigh1                ; Repeat until R7 = 0
+DoAgain       XOR.B #0x80,&P2OUT             ; change the wave value
+              ; Delay : 1134 cycles in T=1ms -> for T=1.25ms we need: 1134*1.25~1417 cycles
+              ;----------------------------------------------------------------------------
+              ; 1 Logi
+              ; for DC=25%: 
+              ; we need : 1417/4~354 cycles
+              ; delay = ax+b
+              MOV #115,R7                    ;  2 cycles = b1                               
+LWait81       DEC R7                         ; iter delay : 'DEC' + 'JNZ' = 3 cycles -> 115*3=345
+              JNZ LWait81
               
-              XOR.B #0x80, &P1OUT           ; Toggle output for low period
-
-              ; --- Low Period (0.3 ms) ---
-              ; Delay for 0.3 ms (cycles = 0.3 ms / clock period)
-              MOV #90, R7                   ; Calculate delay cycles
-LWaitLow1     DEC R7                        ; Decrement R7
-              JNZ LWaitLow1                 ; Repeat until R7 = 0
+              XOR.B #0x80,&P2OUT              ;  5 cycles = b2
+              ;delay = 3*115+7=352
+              ;----------------------------------------------------------------------------
+              ; 0 Logi
+              ; we need : (1417/4)*3 =1062.75 cycles
+              ; delay = ax+b
               
-              DEC R11                       ; Decrement the 5-second counter
-              JNZ DoAgain                   ; Repeat until 5 seconds are over
+              MOV #348,R7                    ;  2 cycles = b1
+LWait82       DEC R7                         ; iter delay : 'DEC' + 'JNZ' = 3 cycles -> 348*3=1044
+              JNZ LWait82 
+              
+              DEC R11                        ;  1 cycles = b1
+              JZ NextKind                    ;  2 cycles = b2 **********calculation for comments stoped here in Roee's order 
+             
+                               ; Return to switch check
 
-NextKind      MOV #8000, R11                ; 5 sec iteration counter (for T=0.5ms) -> 5000ms/0.5ms = 10000 iterations
 
-NextKindLp    XOR.B #0x80, &P1OUT           ; Toggle the output for the square wave
-              ; Delay for 2 kHz square wave with 70% duty cycle (T = 0.5 ms)
-              ; 70% of 0.5 ms = 0.35 ms (high), 30% = 0.15 ms (low)
-
-              ; --- High Period (0.35 ms) ---
-              ; Delay for 0.35 ms (cycles = 0.35 ms / clock period)
-              MOV #105, R7                  ; Calculate delay cycles
-LWaitHigh2    DEC R7                        ; Decrement R7
-              JNZ LWaitHigh2                ; Repeat until R7 = 0
-
-              XOR.B #0x80, &P1OUT           ; Toggle output for low period
-
-              ; --- Low Period (0.15 ms) ---
-              ; Delay for 0.15 ms (cycles = 0.15 ms / clock period)
-              MOV #45, R7                   ; Calculate delay cycles
-LWaitLow2     DEC R7                        ; Decrement R7
-              JNZ LWaitLow2                 ; Repeat until R7 = 0
-
-              DEC R11                       ; Decrement the 5-second counter
-              JNZ NextKindLp                ; Repeat until 5 seconds are over
-
-              JMP Val8Op                    ; Restart the sequence
+NextKind      MOV #8000,R11                  ; 5 sec iteration counter (for T=0.625ms) -> 5000ms/0.625ms = 8000 iterations
+              
+NextKindLp    XOR.B #0x80,&P2OUT              
+              MOV #176,R7                    
+LWait811      DEC R7                         
+              JNZ LWait811
+              
+            
+              
+              XOR.B #0x80,&P1OUT              
+              
+              MOV #52,R7 
+LWait822      DEC R7                         
+              JNZ LWait822 
+              
+              DEC R11
+              JZ Val8Op
+             
+                               
+              JMP Val8Op                      ; Return to switch check
+         ; Restart the sequence
 
              
                
 
 
-GoToSleep    
-             mov     #0x00, state
-             
-             
+GoToSleep    ;dec      clickCounter
+            ; cmp.b    #0x00, clickCounter                  
+             ;jz       goTostate0
+             ;jmp state0
+ 
+goTostate0   mov      #0x00, state         
              jmp     state0       
                  
              END

@@ -12,21 +12,22 @@
 GPIOconfig 
              mov.w   #WDTPW+WDTHOLD,&WDTCTL   ; hold watchdog timer
             ; PushButtons Setup
-             bic.b   #0xF0,PBsArrPortSel
-             bic.b   #0xF0,PBsArrPortDir
-             bis.b   #0x30,PBsArrIntEdgeSel ; pull-up
-             bic.b   #0xC0,PBsArrIntEdgeSel ; pull-down
-             bis.b   #0x70,PBsArrIntEn
-             bic.b   #0xF0,PBsArrIntPend    ; clear pending interrupts
-             
-             ; Switches Setup
-             bic.b   #0x0F,SWsArrPortSel
-             bic.b   #0x0F,SWsArrPortDir
-             
+            
+             bic.b   #0xFF,PBsArrPortSel
+             bic.b   #0xFF,PBsArrPortDir  ;set all as input
+             bis.b   #0x80,PBsArrPortDir  ; set P7 as output
+             bis.b   #0x03,PBsArrIntEdgeSel ; pull-up
+             bic.b   #0xFC,PBsArrIntEdgeSel ; pull-down
+             bis.b   #0x07,PBsArrIntEn
+             bic.b   #0xFF,PBsArrIntPend    ; clear pending interrupts
+
              ; LEDs Setup
              bic.b   #0xFF,LEDsArrPortSel ; GPIO capability
              bis.b   #0xFF,LEDsArrPortDir ; output dir
              clr.b   LEDsArrPort    ; clear LEDs
+             
+             ;SR setup
+             
              
              ret
 ;------------------------------------------------------------------------------------- 

@@ -2,7 +2,7 @@
 
               MODULE HAL
               PUBLIC SysConfig,Print2LEDs,ClrLEDs,ReadSWs,PBs_handler,delay, delay0_5sec
-              EXTERN GPIOconfig,TIMERconfig,ADCconfig
+              EXTERN GPIOconfig,TIMERconfig,ADCconfig, clickCounter
               EXTERN state
             
               RSEG   CODE
@@ -46,6 +46,7 @@ ReadSWs      pop     R4        ; save return address
 ;-----------------------------------------------------------------------
 PBs_handler  push.w #debounceVal
              call   #delay    
+             inc    clickCounter
              bit.b  #PB0,PBsArrIntPend   ;check if PB0 is pushed
              jnz    PB0sel 
              bit.b  #PB1,PBsArrIntPend   ;check if PB1 is pushed
@@ -80,7 +81,7 @@ L            dec.w   R5      ;function body begin
 ;----------------------------------------------------------------------------------------------
 delay0_5sec     pop   R4
                 pop   R5
-                MOV #0x02, R6                
+                MOV #0x03, R6                
 OuterLoop       MOV #delay62_5ms, R7              
 InnerLoop       DEC R7                       
                 JNZ InnerLoop                
