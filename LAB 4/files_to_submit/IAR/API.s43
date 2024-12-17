@@ -1,0 +1,75 @@
+#include  "BSP.h"
+
+             MODULE API
+             PUBLIC State0,State1,State2,State3
+             EXTERN ClrLEDs,EnterSleep,SetLEDs,delay,state,Wave,RotLEDs,EnInt 
+            
+             RSEG   CODE
+
+
+;-------------------------------------------------------------
+;             State0
+;-------------------------------------------------------------
+State0        CALL #ClrLEDs
+              CALL #EnterSleep
+              RET
+
+;-------------------------------------------------------------
+;             State1
+;-------------------------------------------------------------
+State1        MOV   #20,R9    
+              
+              
+              ; show R7 on leds
+State1Loop    PUSH.W  R7          ; (3 cycles)
+              CALL  #SetLEDs    ; (5 cycles)
+              
+              ; delay
+           
+              PUSH #DelayPB0PB1     ; push delay value
+              PUSH #3              ; push iteration number for delay
+              CALL  #delay
+              
+              ; loop
+              INC   R7  ; LEDs++
+              DEC   R9  ; count iteration
+              JNZ   State1Loop
+              CALL #ClrLEDs
+              CALL #EnInt
+              ;MOV     #0,state
+              ;BIS.B  #0x07,PBsArrIntEn
+              RET
+
+;-------------------------------------------------------------
+;             State2
+;-------------------------------------------------------------
+State2        MOV   #20,R9    
+              
+              
+              
+State2Loop    CALL  #RotLEDs    
+              
+              ; delay
+              PUSH DelayPB0PB1
+              PUSH #3
+              CALL  #delay
+              DEC   R9  ; count iteration
+              JNZ   State2Loop
+              CALL #ClrLEDs
+              CALL #EnInt
+              ;MOV     #0,state
+              ;BIS.B  #0x07,PBsArrIntEn
+              RET
+
+
+;-------------------------------------------------------------
+;             State3
+;-------------------------------------------------------------
+State3        CALL #Wave
+              RET
+
+                
+
+;-------------------------------------------------------------
+             ENDMOD    
+             END

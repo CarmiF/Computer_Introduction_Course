@@ -1,0 +1,180 @@
+#include  "BSP.h"
+
+              MODULE HAL
+              PUBLIC EnterSleep,SysConfig,ClrLEDs,PBs_handler,delay,SetLEDs,Wave,RotLEDs,EnInt 
+              EXTERN GPIOconfig
+              EXTERN state
+            
+              RSEG   CODE
+
+;--------------------------------------------------------------------
+;             System Configuration  
+;--------------------------------------------------------------------
+EnterSleep    
+              BIS #CPUOFF+GIE,SR
+              RET
+              
+EnInt         MOV     #0,state     ; return to state0 7
+              BIS.B  #0x07,PBsArrIntEn
+              RET
+              
+;EnIntP0P2     MOV     #0,state     ; return to state0
+              ;BIS.B  #0x07,PBsArrIntEn
+              ;RET              
+
+;--------------------------------------------------------------------
+;             System Configuration  
+;--------------------------------------------------------------------
+SysConfig     CALL #GPIOconfig
+              RET
+ 
+;--------------------------------------------------------------------
+;Clear LEDs - void function (without arguments and return value)
+;--------------------------------------------------------------------
+ClrLEDs       CLR.B LEDsArrPort
+              RET                 
+
+;--------------------------------------------------------------------
+;Set value to LEDs - void function
+;--------------------------------------------------------------------
+SetLEDs       POP R4  ;  PC to return ; (2 cycles)
+              POP R5  ; Argument  (2 cycles)
+              MOV.B R5,LEDsArrPort ; move value to LEDs  (4 cycles)
+              PUSH R4   ;(3 cycles)
+              RET        ;(3 cycles)
+              
+RotLEDs       POP R4  ;  PC to return ; (2 cycles)
+              TST.B LEDsArrPort
+              JZ NewRnd
+              CLRC
+              RRC.B LEDsArrPort
+              JMP Nxt
+NewRnd        MOV.B #0x80,LEDsArrPort
+Nxt           PUSH  R4   ;(3 cycles)
+              RET        ;(3 cycles)
+              
+
+ ; Wave 1000Hz
+Wave          MOV #5000,R11                      ; 5 sec iteration counter (for T=1ms) -> 5000ms/1.25ms = 4000 iterations
+              
+FirstWave     XOR.B #0x80,LEDsArrPort2          ; change the wave value
+              ; Delay : 1134 cycles in T=1ms 
+              ;----------------------------------------------------------------------------
+              ; 1 Logi
+              ; for DC=70%: 
+              ; we need : 0.7*1134 ~ 794 cycles
+              ; delay = ax+b
+              MOV #264,R13                    ;  2 cycles = b1                               
+FirstWaveLp1  DEC R13                         ; iter delay : 'DEC' + 'JNZ' = 3 cycles -> 115*3=345
+              JNZ FirstWaveLp1
+              
+              XOR.B #0x80,LEDsArrPort2              ;  5 cycles = b2
+              ;delay = 3*115+7=352
+              ;----------------------------------------------------------------------------
+              ; 0 Logi
+              ; we need : 0.3*1134 ~ 340 cycles
+              ; delay = ax+b
+              
+              MOV #105,R13                    ;  2 cycles = b1
+FirstWaveLp2  DEC R13                         ; iter delay : 'DEC' + 'JNZ' = 3 cycles -> 348*3=1044
+              JNZ FirstWaveLp2 
+              
+              CMP.B #0x03,state
+              JNZ Finish
+              
+              DEC R11                        ;  1 cycles = b1
+              JZ ScndWaveStart                   ;  2 cycles = b2 
+              JMP FirstWave
+              
+              
+
+
+ScndWaveStart MOV #10000,R11                  ; 5 sec iteration counter (for T=0.5ms) -> 5000ms/0.5ms = 10000 iterations
+              
+ScndWave      XOR.B #0x80,LEDsArrPort2 
+              ; we need : 0.7*567 ~ 397 cycles
+              MOV #130,R13                    
+ScndWaveLp1   DEC R13                         
+              JNZ ScndWaveLp1
+              
+              XOR.B #0x80,LEDsArrPort2              
+              
+              ; we need : 0.3*567 ~ 170 cycles
+              MOV #50,R13 
+ScndWaveLp2   DEC R13                         
+              JNZ ScndWaveLp2 
+              
+              CMP.B #0x03,state
+              JNZ Finish
+              
+              DEC R11                        ;  1 cycles = b1
+              JZ Wave                        ;  2 cycles = b2 
+              JMP ScndWave                      
+
+Finish        RET
+
+;----------------------------------------------------------------------- 
+;            PORT2 Interrupt Service Routine
+;-----------------------------------------------------------------------
+PBs_handler  PUSH   R4
+             PUSH   R5
+             PUSH.W #debounceVal
+             PUSH.W #0
+             CALL   #delay 
+             BIT.B  #PB0,PBsArrIntPend   ;check if PB0 is pushed
+             JNZ    PB0sel 
+             BIT.B  #PB1,PBsArrIntPend   ;check if PB1 is pushed
+             JNZ    PB1sel
+             BIT.B  #PB2,PBsArrIntPend   ;check if PB2 is pushed
+             JNZ    PB2sel
+             RETI                ; interrupt hapened from another source
+             
+PB0sel       MOV    #1,state 
+             BIC.B  #0x06,PBsArrIntEn
+             BIC.B  #PB0,PBsArrIntPend
+             JMP    exitLPM0
+
+PB1sel       MOV    #2,state
+             BIC.B  #0x05,PBsArrIntEn
+             BIC.B  #PB1,PBsArrIntPend
+             JMP    exitLPM0
+PB2sel       mov    #3,state
+             bic.b  #PB2,PBsArrIntPend
+             jmp    exitLPM0
+
+
+exitLPM0     pop    R5
+             pop    R4
+             bic    #CPUOFF,0(SP)  ; Exit LMP0
+ 
+             reti
+
+
+
+;----------------------------------------------------------------------------------------------
+;            Polling based Delay function
+;----------------------------------------------------------------------------------------------                     
+delay           POP R4        ; save return address
+                POP R5        ; get delay iterations num
+                
+                POP R6        ; get delay value
+                
+LOut            MOV R6,R8
+L1              DEC R8                       
+                JNZ L1
+                CMP #0,R5
+                JZ sofsof
+                DEC R5
+                JNZ LOut
+                
+                
+sofsof          PUSH  R4
+                RET        
+                
+                          
+;----------------------------------------------------------------------------------------------
+             ENDMOD
+             END
+
+
+ 
