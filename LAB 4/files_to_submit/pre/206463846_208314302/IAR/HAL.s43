@@ -1,9 +1,9 @@
 #include  "BSP.h"
 
               MODULE HAL
-              PUBLIC EnterSleep,SysConfig,ClrLEDs,PBs_handler,delay,SetLEDs,Wave,RotLEDs,EnInt 
+              PUBLIC EnterSleep,SysConfig,ClrLEDs,PBs_handler,delay,SetLEDs,Wave,RotLEDs,EnInt
               EXTERN GPIOconfig
-              EXTERN state
+              EXTERN state,ledState2
             
               RSEG   CODE
 
@@ -44,15 +44,19 @@ SetLEDs       POP R4  ;  PC to return ; (2 cycles)
               RET        ;(3 cycles)
               
 RotLEDs       POP R4  ;  PC to return ; (2 cycles)
-              TST.B LEDsArrPort
+              MOV.B ledState2,LEDsArrPort
+              CMP.B #1,ledState2
               JZ NewRnd
-              CLRC
-              RRC.B LEDsArrPort
-              JMP Nxt
-NewRnd        MOV.B #0x80,LEDsArrPort
-Nxt           PUSH  R4   ;(3 cycles)
-              RET        ;(3 cycles)
               
+              CLRC
+              RRC.B ledState2
+              ;RRC.B LEDsArrPort
+             
+              JMP Nxt
+NewRnd        MOV.B #0x80,ledState2
+Nxt           PUSH  R4   ;(3 cycles)
+              ;MOV.B LEDsArrPort,ledState2
+              RET        ;(3 cycles)
 
  ; Wave 1000Hz
 Wave          MOV #5000,R11                      ; 5 sec iteration counter (for T=1ms) -> 5000ms/1.25ms = 4000 iterations

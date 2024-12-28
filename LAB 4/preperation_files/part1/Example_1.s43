@@ -1,0 +1,57 @@
+#include  <msp430xG46x.h>
+;-------------------------------------------------------------------------------
+            RSEG    CSTACK                  ; Begins a relocatable segment name of CSTACK - Define stack segment
+;-------------------------------------------------------------------------------
+            RSEG    CODE                    ; Assemble to Flash memory -like void main in C
+;-----------------------------------------------------------------------------
+RESET       mov.w   #SFE(CSTACK),SP          ; Initialize stackpointer
+StopWDT     mov.w   #WDTPW+WDTHOLD,&WDTCTL   ; Stop WDT
+                                                                                       
+SetupP9     bis.b   #0xff,&P9DIR             ; P9.0-P9.7 output
+            clr.b   &P9OUT
+            
+SetupP1     bic.b   #1,&P1SEL
+            bic.b   #1,&P1DIR
+            bis.b   #1,&P1IES
+            bis.b   #1,&P1IE
+            bic.b   #0x01,&P1IFG             ; reset of interrupt flag
+            
+SetupP2     bic.b   #1,&P2SEL
+            bic.b   #1,&P2DIR
+            bis.b   #1,&P2IES
+            bis.b   #1,&P2IE
+            bic.b   #0x01,&P2IFG             ; reset of interrupt flag
+            
+            bis.w   #CPUOFF+GIE,SR          ;LMP0 = go to sleep and wake up when interrupt occure
+            nop                             ;for simulation only
+;------------------------------------------------------------------------------------------ 
+;               PORT1 ISR - P1.0
+;------------------------------------------------------------------------------------------
+PORT1_ISR  xor.b   #0xFF,&P9OUT
+           call    #Wait
+           bic.b   #0x01,&P1IFG  
+           reti 
+;------------------------------------------------------------------------------------------ 
+;               PORT2 ISR - P2.0
+;------------------------------------------------------------------------------------------
+PORT2_ISR  xor.b   #0xFF,&P9OUT
+           call    #Wait
+           bic.b   #0x01,&P2IFG  
+           reti 
+;----------------------------------------------------------------------------------------------
+;             Delay Subroutine
+;----------------------------------------------------------------------------------------------
+Wait       mov.w   #400,R15             
+L          dec.w   R15                     
+           jnz     L
+           ret
+;------------------------------------------------------------------------------
+            COMMON  INTVEC                  ; Interrupt Vectors-Begins a common segment with name of INTVEC 
+;------------------------------------------------------------------------------
+            ORG     PORT2_VECTOR            ;PORT2 Interrupt Vector Address 0xFFE2
+            DW      PORT2_ISR
+            ORG     PORT1_VECTOR            ;PORT1 Interrupt Vector Address 0xFFE8
+            DW      PORT1_ISR
+            ORG     RESET_VECTOR            ;RESET Vector Address 0xFFFE
+            DW      RESET                   
+            END

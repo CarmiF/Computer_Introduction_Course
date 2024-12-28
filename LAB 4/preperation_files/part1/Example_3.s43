@@ -1,0 +1,126 @@
+#include  <msp430xG46x.h>
+
+Debounce     MACRO  cycles
+             LOCAL  L
+             mov.w  cycles,R15     
+L            dec.w  R15                     
+             jnz    L
+             ENDM
+;-------------------------------------------------------------------------------
+            ORG     0x1100                  ; Begins a RAM segment
+;-------------------------------------------------------------------------------
+state       DW   0
+PullUp      EQU  280  ;wait of 0.8msec = (3op*280)/2^20
+PullDown    EQU  70   ;wait of 0.2msec = (3op*70)/2^20
+;-------------------------------------------------------------------------------
+            RSEG    CSTACK                  ; Begins a relocatable segment name of CSTACK - Define stack segment
+;-------------------------------------------------------------------------------
+            RSEG    CODE                    ; Assemble to Flash memory -like void main in C
+;-----------------------------------------------------------------------------
+main         mov.w   #SFE(CSTACK),SP          ; Initialize stack pointer
+StopWDT      mov.w   #WDTPW+WDTHOLD,&WDTCTL                                            
+SetupP9      bis.b   #0xff,&P9DIR            ; P9.0-P9.7 output = #0xff -->M(P9DIR) 
+
+SetupP1      bic.b   #3,&P1SEL
+             bic.b   #3,&P1DIR
+             bis.b   #3,&P1IES
+             bis.b   #3,&P1IE
+             bic.b   #3,&P1IFG                ; reset of interrupt flag
+             
+SetupP2      bic.b   #1,&P2SEL
+             bic.b   #1,&P2DIR
+             bic.b   #1,&P2IES
+             bis.b   #1,&P2IE
+             bic.b   #1,&P2IFG                ; reset of interrupt flag             
+
+;----------- FSM_loop -------------------------------------
+state0       cmp     #0,state         ;check if state0           
+             jnz     state1
+             clr.b   &P9OUT
+             bis.w   #CPUOFF+GIE,SR 
+
+state1       cmp     #1,state         ;check if state1
+             jnz     state2             
+             call    #IncLED           ;infinite function            
+            
+state2       cmp     #2,state         ;check if state2
+             jnz     state0             
+             call    #DecLED           ;infinite function
+            
+             jmp     state0
+	     nop       
+;------------------------------------------------------------------------------------------ 
+;               PORT1 Interrupt Service Routine  of SW1=P1.0
+;------------------------------------------------------------------------------------------
+PORT1_ISR    Debounce #PullUp   
+             bit.b  #0x01,&P1IFG   ;check if P1.0 is pushed
+             jnz    P1_0 
+             bit.b  #0x02,&P1IFG   ;check if P1.1 is pushed
+             jnz    P1_1
+             reti                  ; interrupt hapened from another source
+             
+P1_0         mov    #1,state       ; rlLED
+             jmp    exitLPM0
+P1_1         mov    #2,state       ; rrLED
+exitLPM0     bic    #CPUOFF,0(SP)  ; Exit LMP0
+             bic.b  #0x03,&P1IFG  
+             reti
+;------------------------------------------------------------------------------------------ 
+;               PORT2 Interrupt Service Routine  of SW1=P1.0
+;------------------------------------------------------------------------------------------
+PORT2_ISR    mov    #0,state
+             Debounce #PullDown 
+             bic.b  #0x01,&P2IFG  
+             reti 
+;----------------------------------------------------------------------------------------------
+;             Delay of 100usec Subroutine
+;----------------------------------------------------------------------------------------------                     
+Delay100us   mov.w  #35,R15    ;wait of 0.1msec = (3op*35)/2^20 
+L3           dec.w   R15                     
+             jnz     L3
+             ret
+;----------------------------------------------------------------------------------------------
+;             Delay of 1msec Subroutine
+;----------------------------------------------------------------------------------------------                     
+Delay1ms     mov.w  #350,R15    ;wait of 0.1msec = (3op*350)/2^20 
+L4           dec.w   R15                     
+             jnz     L4
+             ret
+;----------------------------------------------------------------------------------------------
+;             Delay of 1sec Subroutine
+;----------------------------------------------------------------------------------------------                     
+Delay1s      mov.w  #5,R13    ;wait of 1sec
+L5           mov.w  #65535,R15
+L6           dec.w   R15 
+             jnz     L6
+             dec.w   R13 
+             jnz     L5
+             ret
+;----------------------------------------------------------------------------------------------
+;             Increment counting 
+;----------------------------------------------------------------------------------------------
+IncLED       clr.b   &P9OUT
+Subloop1     inc.b   &P9OUT
+             call    #Delay1s  
+             cmp     #1,state
+             jz      Subloop1
+             ret
+;----------------------------------------------------------------------------------------------
+;             Decrement counting
+;----------------------------------------------------------------------------------------------
+DecLED       mov.b   #0xFF,&P9OUT
+Subloop2     dec.b   &P9OUT
+             call    #Delay1s  
+             cmp     #2,state
+             jz      Subloop2
+             ret
+;-------------------------------------------------------------------------------------------------------------------------------------------
+            COMMON  INTVEC                  ; Interrupt Vectors-Begins a common segment with name of INTVEC 
+;-------------------------------------------------------------------------------------------------------------------------------------------
+            ORG     PORT1_VECTOR            ;PORT1 Interrupt Vector
+            DW      PORT1_ISR
+            ORG     PORT2_VECTOR            ;PORT2 Interrupt Vector
+            DW      PORT2_ISR
+            ORG     RESET_VECTOR            ; MSP430 RESET Vector
+            DW      main                   
+            END

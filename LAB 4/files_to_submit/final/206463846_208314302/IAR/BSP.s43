@@ -1,0 +1,41 @@
+#include  "BSP.h"
+
+            MODULE BSP
+            PUBLIC GPIOconfig
+            EXTERN Main,PBs_handler
+            
+            RSEG   CODE                    
+;-----------------------------------------------------------------------------  
+;           GPIO congiguration
+;-----------------------------------------------------------------------------
+GPIOconfig   MOV   #WDTPW+WDTHOLD,&WDTCTL   
+            ; PushButtons Setup
+             BIC.B   #0xFF,PBsArrPortSel    ; set P2 to GPIO
+             MOV.B   #0x80,PBsArrPortDir    ; set P2.0 - P2.3 to input, P2.7 to output
+             BIS.B   #0x03,PBsArrIntEdgeSel ; P2.0,P2.1 pull-up -> set to falling edge
+             BIC.B   #0x0C,PBsArrIntEdgeSel ; P2.2,P2.3 pull-down -> set to rising edge
+             BIS.B   #0x0F,PBsArrIntEn      ; enable interrupts from P2
+             BIC.B   #0x0F,PBsArrIntPend    ; set panding as 0
+             BIC.B   #0x80,LEDsArrPort2     ; P2.7 output set as 0
+             
+             
+             ; LEDs Setup
+             BIC.B   #0xFF,LEDsArrPortSel   ; set P1 to GPIO
+             BIS.B   #0xFF,LEDsArrPortDir   ; set P1DIR to output
+             CLR.B   LEDsArrPort            ; set leds off
+             
+             RET
+;---------------------------------------------------------------------------------------                  
+             COMMON  INTVEC   ; Interrupt Vectors-Begins a common segment name of INTVEC 
+;--------------------------------------------------------------------------------------
+             ORG     PORT2_VECTOR       ;PORT2 Interrupt Vector
+             DW      PBs_handler        ; interrupt handler = ISR
+             ORG     RESET_VECTOR       ; MSP430 RESET Vector
+             DW      Main  
+            
+             ENDMOD
+             END
+             
+             
+             
+    

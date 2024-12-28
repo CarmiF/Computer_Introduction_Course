@@ -10,7 +10,6 @@
 
 #define   debounceVal      250
 #define   delay62_5ms      0xFFFF
-#define   compleateTo0_5sec      0xAAA3
 
 // LEDs abstraction
 #define LEDsArrPort        &P1OUT
@@ -24,22 +23,16 @@
 #define SWmask             0x0F
 
 // PushButtons abstraction
+#define PBsArrPort	   &P2IN 
+#define PBsArrIntPend	   &P2IFG 
+#define PBsArrIntEn	   &P2IE
+#define PBsArrIntEdgeSel   &P2IES
 #define PBsArrPortSel      &P2SEL 
 #define PBsArrPortDir      &P2DIR 
-#define PBsArrIntEdgeSel   &P2IES
-
-#define PBsArrIntEn	   &P2IE
-#define PBsArrIntPend	   &P2IFG
-#define PBsArrPort	   &P2IN 
- 
-
-
-
-
-#define PB0                0x01
-#define PB1                0x02
-#define PB2                0x04
-
+#define PB0                0x10
+#define PB1                0x20
+#define PB2                0x40
+#define PB3                0x80
 
 #endif
 

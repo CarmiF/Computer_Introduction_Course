@@ -1,5 +1,4 @@
 #include  "bsp.h"
-#include "msp430g2553.h"
 
             MODULE BSP
             PUBLIC GPIOconfig,TIMERconfig,ADCconfig
@@ -11,23 +10,21 @@
 ;-----------------------------------------------------------------------------
 GPIOconfig 
              mov.w   #WDTPW+WDTHOLD,&WDTCTL   ; hold watchdog timer
-            ; PushButtons Setup
+            ; P2 PushButtons Setup(P0-P2), Sqwer Wave(P7)
             
              bic.b   #0xFF,PBsArrPortSel
              bic.b   #0xFF,PBsArrPortDir  ;set all as input
              bis.b   #0x80,PBsArrPortDir  ; set P7 as output
              bis.b   #0x03,PBsArrIntEdgeSel ; pull-up
-             bic.b   #0xFC,PBsArrIntEdgeSel ; pull-down
+             bic.b   #0x04,PBsArrIntEdgeSel ; pull-down
              bis.b   #0x07,PBsArrIntEn
              bic.b   #0xFF,PBsArrIntPend    ; clear pending interrupts
-
+             
+           
              ; LEDs Setup
              bic.b   #0xFF,LEDsArrPortSel ; GPIO capability
              bis.b   #0xFF,LEDsArrPortDir ; output dir
              clr.b   LEDsArrPort    ; clear LEDs
-             
-             ;SR setup
-             
              
              ret
 ;------------------------------------------------------------------------------------- 

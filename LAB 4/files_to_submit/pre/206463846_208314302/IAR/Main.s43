@@ -1,0 +1,68 @@
+#include  "BSP.h"
+
+             NAME   MAIN
+             PUBLIC state,Main,ledState2,ledState1
+             EXTERN State0,State1,State2,State3
+             EXTERN SysConfig
+             
+;----------------------------------------------------------------------------------
+             ORG      DataSegStart         ; Begins a DATA segment
+             
+state        DW   0                        ; state variable
+ledState1    DB   0
+ledState2    DB   0x80
+
+
+;-------------------------------------------------------------------------------------          
+             ;RSEG    CSTACK    ; shows to compiler where is the RAM populating limit
+                                ; can be ignored
+;-------------------------------------------------------------------------------------
+             ORG     CodeSegStart       ; Program Reset = Begins a CODE segment
+             
+Main         MOV   #StackTosStart,SP  ; Initialize stack pointer to the RAM end 
+             CLR R7
+             ;CLR R12
+             
+             CALL    #SysConfig
+             MOV     #0,state              ; set to idle state at the beginning
+             
+;---------------------- FSM_loop -------------------------------------
+FSMLoop      CMP     #0x00,state         ;check if state0           
+             JNZ     SkpState1
+             CALL    #State0
+
+
+SkpState1    CMP     #0x01,state         ;check if state1
+             JNZ     SkpState2
+             
+             DINT     ; Disable INT --> GIE=0
+             CALL    #State1 ; (5 cycles)
+            
+            
+             
+             EINT     ; Enable INT --> GIE=1
+             
+             
+            
+SkpState2    CMP     #0x02,state         ;check if state1
+             JNZ     SkpState3
+             
+             DINT     ; Disable INT --> GIE=0
+             CALL    #State2 ; (5 cycles)
+             
+             
+             
+             EINT     ; Enable INT --> GIE=1
+             
+             
+            
+SkpState3    CMP     #0x03,state         ;check if state3
+             JNZ     FSMLoop
+               
+             CALL    #State3
+                      
+                       
+    
+             JMP     FSMLoop       
+                 
+             END

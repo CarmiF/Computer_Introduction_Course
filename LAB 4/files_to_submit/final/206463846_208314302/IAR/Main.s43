@@ -1,14 +1,18 @@
 #include  "BSP.h"
 
              NAME   MAIN
-             PUBLIC state,Main
-             EXTERN State0,State1,State2,State3
+             PUBLIC state,Main,ledState2,ledState1,nameK 
+             EXTERN State0,State1,State2,State3,PrintStr
              EXTERN SysConfig
              
 ;----------------------------------------------------------------------------------
              ORG      DataSegStart         ; Begins a DATA segment
              
 state        DW   0                        ; state variable
+ledState1    DB   0
+ledState2    DB   0x80
+nameK        DB "CARMIFRANK" 
+
 
 ;-------------------------------------------------------------------------------------          
              ;RSEG    CSTACK    ; shows to compiler where is the RAM populating limit
@@ -18,7 +22,7 @@ state        DW   0                        ; state variable
              
 Main         MOV   #StackTosStart,SP  ; Initialize stack pointer to the RAM end 
              CLR R7
-             ;CLR R12
+             
              
              CALL    #SysConfig
              MOV     #0,state              ; set to idle state at the beginning
@@ -32,32 +36,33 @@ FSMLoop      CMP     #0x00,state         ;check if state0
 SkpState1    CMP     #0x01,state         ;check if state1
              JNZ     SkpState2
              
-             DINT     ; Disable INT --> GIE=0
+             
              CALL    #State1 ; (5 cycles)
             
-            
-             
-             EINT     ; Enable INT --> GIE=1
-             
+           
              
             
 SkpState2    CMP     #0x02,state         ;check if state1
              JNZ     SkpState3
              
-             DINT     ; Disable INT --> GIE=0
+             
              CALL    #State2 ; (5 cycles)
              
-             
-             
-             EINT     ; Enable INT --> GIE=1
-             
-             
+           
             
 SkpState3    CMP     #0x03,state         ;check if state3
-             JNZ     FSMLoop
+             JNZ     SkpState4
                
              CALL    #State3
-                      
+             
+SkpState4    CMP     #0x04,state         ;check if state1
+             JNZ     FSMLoop
+             
+             
+             CALL    #PrintStr ; (5 cycles)
+            
+            
+        
                        
     
              JMP     FSMLoop       

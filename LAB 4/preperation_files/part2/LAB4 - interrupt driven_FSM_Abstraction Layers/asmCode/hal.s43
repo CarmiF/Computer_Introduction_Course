@@ -1,8 +1,8 @@
 #include  "bsp.h"
 
               MODULE HAL
-              PUBLIC SysConfig,Print2LEDs,ClrLEDs,ReadSWs,PBs_handler,delay, delay0_5sec
-              EXTERN GPIOconfig,TIMERconfig,ADCconfig, clickCounter
+              PUBLIC SysConfig,Print2LEDs,ClrLEDs,ReadSWs,PBs_handler,delay
+              EXTERN GPIOconfig,TIMERconfig,ADCconfig
               EXTERN state
             
               RSEG   CODE
@@ -31,8 +31,6 @@ ClrLEDs       clr.b LEDsArrPort
 ;--------------------------------------------------------------------
 ;Read SWs -  function, without arguments and return value
 ;--------------------------------------------------------------------
-#include "msp430g2553.h"
-
 ReadSWs      pop     R4        ; save return address
 
              mov.b   PBsArrPort,R5 ;function body
@@ -46,7 +44,6 @@ ReadSWs      pop     R4        ; save return address
 ;-----------------------------------------------------------------------
 PBs_handler  push.w #debounceVal
              call   #delay    
-             inc    clickCounter
              bit.b  #PB0,PBsArrIntPend   ;check if PB0 is pushed
              jnz    PB0sel 
              bit.b  #PB1,PBsArrIntPend   ;check if PB1 is pushed
@@ -61,7 +58,7 @@ PB0sel       mov    #1,state
 PB1sel       mov    #2,state
              mov    #PB1,R4     ; which IntPend to clear
              jmp    exitLPM0
-PB2sel       mov    #3,state    ; idle state
+PB2sel       mov    #0,state    ; idle state
              mov    #PB2,R4     ; which IntPend to clear
 
 exitLPM0     bic    #CPUOFF,0(SP)  ; Exit LMP0
@@ -78,26 +75,6 @@ L            dec.w   R5      ;function body begin
              
              push.w  R4
              ret
-;----------------------------------------------------------------------------------------------
-delay0_5sec     pop   R4
-                pop   R5
-                MOV #0x03, R6                
-OuterLoop       MOV #delay62_5ms, R7              
-InnerLoop       DEC R7                       
-                JNZ InnerLoop                
-                DEC R6                       
-                JNZ OuterLoop                
-                MOV #compleateTo0_5sec, R6              ; additional delay                      
-CompleteLoop    DEC R6                       
-                JNZ CompleteLoop             ; Repeat the loop until R6 reaches 0
-                
-                push.w  R4
-                RET                        
-
-
-
-
-
 ;----------------------------------------------------------------------------------------------
              ENDMOD
              END
