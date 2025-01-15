@@ -1,0 +1,156 @@
+#include  "BSP.h"
+
+              MODULE HAL
+              PUBLIC EnterSleep,SysConfig,ClrLEDs,PBs_handler,delay,TA0_LCD_Timer,SetLEDs,TA1_handler
+              PUBLIC GetTA1CCR1,GetTA1CCR2
+              EXTERN GPIOconfig,State1Tick,State2_Cap,State2_Down,State1Action
+              EXTERN state,Counter,RISEcount,FinishST2,StopAllTimer
+              
+              RSEG   CODE
+
+;--------------------------------------------------------------------
+;             System Configuration  
+;--------------------------------------------------------------------
+EnterSleep    bis.w   #CPUOFF+GIE,SR
+              ret
+
+;--------------------------------------------------------------------
+;             System Configuration  
+;--------------------------------------------------------------------
+SysConfig     call #GPIOconfig
+              
+              ret
+ 
+;--------------------------------------------------------------------
+;Clear LEDs - void function (without arguments and return value)
+;--------------------------------------------------------------------
+ClrLEDs       clr.b LCDsArrPort
+          
+              ret                 
+
+;--------------------------------------------------------------------
+;Set value to LEDs - void function
+;--------------------------------------------------------------------
+SetLEDs       pop   R4  ;  PC to return
+              pop   R5  ; Argument
+              MOV.B R5,LCDsArrPort ; move value to LEDs
+              push  R4
+              ret      
+
+;----------------------------------------------------------------------- 
+;            PORT2 Interrupt Service Routine
+;-----------------------------------------------------------------------
+PBs_handler      
+             ; backup R4,R5 in stack for avoid overwriting
+             push   R4
+             push   R5
+             push.w #debounceVal
+             call   #delay    
+             bit.b  #PB0,PBsArrIntPend   ;check if PB0 is pushed
+             jnz    PB0sel 
+             bit.b  #PB1,PBsArrIntPend   ;check if PB1 is pushed
+             jnz    PB1sel
+             bit.b  #PB2,PBsArrIntPend   ;check if PB2 is pushed
+             jnz    PB2sel
+             reti                ; interrupt hapened from another source
+             
+PB0sel       mov    #1,state 
+             bic.b  #PB0,PBsArrIntPend    ; Clear IFG flag
+             jmp    exitLPM0
+
+PB1sel       mov    #2,state
+             bic.b  #PB1,PBsArrIntPend    ; Clear IFG flag
+             jmp    exitLPM0
+
+PB2sel       mov    #3,state
+             bic.b  #PB2,PBsArrIntPend    ; Clear IFG flag
+             jmp    exitLPM0
+
+
+exitLPM0     pop    R5
+             pop    R4
+             bic    #CPUOFF,0(SP)  ; Exit LMP0
+             
+             reti
+;----------------------------------------------------------------------- 
+;            TimerA0 Interrupt Service Routine
+;-----------------------------------------------------------------------
+TA1_handler 
+            ADD   &TA1IV,PC                ; Add Timer_A offset vector
+            JMP    TA1_Core                
+            reti                            ; CCR1
+            jmp    TA1_CCR2                 ; CCR2
+            reti                            ; CCR3
+            reti                            ; CCR4
+            JMP     TA1_Core 
+            reti                            ; Return from overflow ISR
+
+
+TA1_Core    CMP     #1,state
+            JNZ     second_cmp
+            CALL    #State1Action
+            cmp #0,Counter
+            JNZ TA1_ISR_Ext
+            mov #0,state
+            
+second_cmp  CMP     #2,state
+            JNZ     TA1_ISR_Ext
+            ;CALL #StopAllTimer
+            CALL #FinishST2
+            ;INC Counter
+            CLR RISEcount
+           
+            
+
+TA1_ISR_Ext RETI
+
+TA0_LCD_Timer   bic       #TAIFG + MC_1, &TA0CTL   ; srvice for timerA0
+                bic       #CPUOFF,0(SP)        
+                reti
+
+;----------------------------------------------------------------------- 
+;            TimerA1 Interrupt Service Routine
+;-----------------------------------------------------------------------
+
+
+
+
+TA1_CCR2    
+            CMP     #2,state
+            JNZ     TA1_ISR_Ext
+            ;call    #State2_Cap
+            INC RISEcount
+            
+            RETI
+            
+
+
+
+
+GetTA1CCR1  POP     R4
+            PUSH    &TA1CCR1
+            PUSH    R4
+            RET
+
+GetTA1CCR2  POP     R4
+            PUSH    &TA1CCR2
+            PUSH    R4
+             RET
+            
+;----------------------------------------------------------------------------------------------
+;            Polling based Delay function
+;----------------------------------------------------------------------------------------------                     
+delay           pop   R4        ; save return address
+                pop   R5        ; get delay value
+             
+L               dec.w   R5      ;function body begin                 
+                jnz     L       ;function body end
+             
+                push.w  R4
+                ret        
+;----------------------------------------------------------------------------------------------
+             ENDMOD
+             END
+
+
+ 

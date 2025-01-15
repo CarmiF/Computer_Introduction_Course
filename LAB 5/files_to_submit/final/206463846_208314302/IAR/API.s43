@@ -1,0 +1,477 @@
+#include  "BSP.h"
+
+             MODULE API
+             PUBLIC State0,State1,State2,State1Action,State2_Cap,FinishST2,StateAction3,State3
+             EXTERN ClrLEDs,EnterSleep,TimerConf250,SetLEDs,ST2_TAConf,ST2_first,ST2_second,GetTA1CCR1,GetTA1CCR2,StopAllTimer,ST1_TAConf
+             EXTERN NumToStr,Counter,TimeInterval,Counter,flag ,RISEcount,ConfAgain,str3,str4,ST3_TAConf,str5
+             EXTERN print_str, lcd_init, str, state, lcd_clr, str2,lcd_cmd,print_ch ; LCD EXTERN
+             RSEG   CODE
+
+
+;-------------------------------------------------------------
+;             State0
+;-------------------------------------------------------------
+State0                    
+              call #ClrLEDs
+              call #EnterSleep
+              ret
+
+
+
+
+
+;RowDown         push #0xC0
+               ; call #lcd_cmd 
+                
+;-------------------------------------------------------------
+;             State1
+;-------------------------------------------------------------
+State1        
+              CLR flag
+              MOV #60,Counter
+              ;stop all timers
+              CALL #StopAllTimer
+              call #lcd_clr
+;----------------------------------------------------------------------
+              ;init LCD
+              
+              
+              PUSH.W #str
+              CALL #print_str
+              
+              ; init timer0
+              call  #ST1_TAConf
+           
+              ; go to sleep
+              call #EnterSleep
+              
+              
+              ret
+
+
+State1Action    ; dec the LCD value
+             
+              
+
+              DEC Counter
+              mov Counter, R6                       ; R6 wiil be send to sting_handler
+              xor.b     #debugLED, &P2OUT      ;P2.3 debugLed- blincking every sec
+              
+              cmp #0,flag
+              jnz NormalIteration
+              INC flag
+              call #lcd_clr
+              PUSH.W #str5
+              CALL #print_str
+              
+              push #0x10
+              call #lcd_cmd
+              ;push #0x10
+              ;call #lcd_cmd
+              ;push #0x10
+              ;call #lcd_cmd
+              ;push #0x10
+              ;call #lcd_cmd
+              ;push #48
+              ;call #print_ch
+              ;push #0x14
+              ;call #lcd_cmd
+              ;push #0x14
+              ;call #lcd_cmd
+              
+              ret
+              
+              
+NormalIteration      push Counter
+                     push #10
+                     CALL #DIV16
+                     POP R9              ; R9 == the remain --> the digit we want
+                     POP R6             ; R11 == the qoutient
+                     
+                     ADD #48,R9
+                     push R9
+                     CALL #print_ch
+                     
+                     push #0x10
+                     call #lcd_cmd
+                     push #0x10
+                     call #lcd_cmd
+                     
+                     ADD #48,R6
+                     push R6
+                     CALL #print_ch
+                     
+                     ;push #0x14
+                     ;call #lcd_cmd
+                     
+                     ret
+                     
+                     ;cmp.b     #0x00,Counter            
+                     
+
+
+;-------------------------------------------------------------
+;             State2
+;-------------------------------------------------------------
+State2                    
+              ; stop all timers
+              CALL #StopAllTimer
+         
+              CLR     Counter            
+              
+              ; Config TA1 for input capture
+              call #ST2_TAConf
+              call #lcd_clr
+              
+              PUSH.W #str3
+              CALL #print_str
+              
+              ; go to sleep
+              call #EnterSleep
+              
+              clr ST2_first
+              
+              
+              
+              ret
+              
+;Inc_Counter   INC Counter
+              ;RET
+
+FinishST2     call #lcd_clr
+              
+              PUSH.W #str3
+              CALL #print_str
+              
+
+              push #0xC0
+              call #lcd_cmd
+              
+              push #0x14
+              call #lcd_cmd
+              push #0x14
+              call #lcd_cmd
+              push #0x14
+              call #lcd_cmd
+              push #0x14
+              call #lcd_cmd
+              push #0x14
+              call #lcd_cmd
+              push #0x14
+              call #lcd_cmd
+              push #0x14
+              call #lcd_cmd
+              push #0x14
+              call #lcd_cmd
+              push #0x14
+              call #lcd_cmd
+              push #0x14
+              call #lcd_cmd
+              push #0x14
+              call #lcd_cmd
+              push #0x14
+              call #lcd_cmd
+              push #0x14
+              call #lcd_cmd
+              push #0x14
+              call #lcd_cmd
+              push #0x14
+              call #lcd_cmd
+              
+             
+
+              mov RISEcount,R6
+              mov RISEcount,R7
+              push R7
+              push #20
+              CALL #DIV16
+              POP R9              ; R9 == the remain --> the digit we want
+              POP R7             ; the qoutient
+              ADD R7,R6
+              ADD R7,R6
+              ADD R7,R6
+              
+              
+              
+LOOPLOOP      push R6
+              push #10
+              CALL #DIV16
+              POP R9              ; R9 == the remain --> the digit we want
+              POP R6             ; the qoutient
+                     
+              ADD #48,R9
+              push R9
+              CALL #print_ch
+              
+              push #0x10
+              call #lcd_cmd
+              push #0x10
+              call #lcd_cmd
+              CMP #0,R6
+              JNZ LOOPLOOP
+              RET
+              
+              
+
+              
+State2_Cap    CALL  #GetTA1CCR2
+              CMP #0,ST2_first
+              JNZ PopST2second
+              POP ST2_first
+              RET
+PopST2second  POP ST2_second
+              SUB   ST2_first,ST2_second
+              
+              PUSH Counter
+              PUSH #0xFFFF
+              CALL #SPmult
+              POP R8    ; low word of result
+              POP R9    ; high word of result
+              ADD ST2_second,R8   ; R8 == low word of meassured time interval
+              ADC R9              ; R9 == high word of meassured time interval
+              
+              push #52428
+              push R8
+              CALL #DIV16
+              POP R9              ; R9 == the remain --> the digit we want
+              POP R6             ; R11 == the qoutient
+              
+              PUSH 20
+              PUSH R6
+              CALL #SPmult
+              POP R8    ; low word of result
+              POP R9    ; high word of result
+
+                     
+                     ret
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              
+              ;MOV #TimeInterval,R7   ; R7 points to the lower word of the time interval
+              ;MOV R8,0(R7)
+              ;MOV R9,2(R7)
+              ; now the variable TimeInterval holds the value of how many times 1/2^20 is in one meassured interval
+              
+              ;PUSH #0xFFFF
+              ;PUSH 0(R7)
+              ;POP R7 ; pop to R11 the reminder in order to clean the stack
+              ;POP R6 ; R10 holds the quotient
+              
+              ;PUSH R10
+              ;PUSH #16
+              ;CALL #SPmult
+              ;POP R8    ; low word of result
+              ;POP R9    ; high word of result
+              ; take in count the reminder
+              ; R8 now holds the value that we need to divide 1000Hz in, in order to get our frequency
+              
+              
+              
+              
+             
+              
+              ; now we need to find a way to convert it to frequency
+              
+              
+              
+              
+              ; put the ASCII value of each digit one after another in the memory (reversed order)
+              ;MOV #NumToStr,R8   ; R8 is a pointer to the lowest address of NumToStr
+;Lp2           ;PUSH #10
+              ;PUSH R7
+              ;CALL #DIV16
+              ;POP R7
+              ;POP R11
+              ;CMP #0,R7
+              ;JZ LeaveLoop2
+              ;ADD #48,R11       ; convert the digit to its ASCII code
+              ;MOV R11,0(R8)
+              ;INCD R8
+              ;JMP Lp2 
+              ; by now, in each byte of the string NumToStr there is each digit of the frequency in reversed order
+              ; ----------FUNC THAT REVERSES THE STRING-------
+              
+              
+              
+              
+;LeaveLoop2     ; put the string on LCD
+              ;PUSH #NumToStr          ; push a pointer to the string
+              ;CALL #SetLEDs 
+              
+              ; now we need to put each digit of the frequwncy in different register or variable and push it to the stack
+              ; left to do for this state: convert T to f and show it in LCD
+ 
+              
+
+              RET
+              
+State3       CALL #StopAllTimer
+             call #ST3_TAConf
+             call #lcd_clr
+             CLR Counter
+             call #EnterSleep
+              
+              ret
+             
+             
+StateAction3    ;call #lcd_clr
+                CMP #0,Counter
+                JNZ  Cmp16
+                INC Counter
+                push #98
+                CALL #print_ch
+                ret
+                
+                
+Cmp16           CMP #16,Counter
+                JNZ Cmp32
+                push #0x10
+                call #lcd_cmd 
+                push #32
+                CALL #print_ch
+                push #0xC0
+                call #lcd_cmd 
+                push #98
+                CALL #print_ch
+                INC Counter
+                ret
+                
+                
+                
+Cmp32           CMP #32,Counter
+                JNZ GoOn
+                push #0x10
+                call #lcd_cmd 
+                push #32
+                CALL #print_ch
+                push #0x02
+                call #lcd_cmd 
+                push #98
+                CALL #print_ch
+                MOV #1, Counter
+                ret              
+
+GoOn            push #0x10
+                call #lcd_cmd    
+                push #32
+                CALL #print_ch
+          
+                push #98
+                CALL #print_ch
+                INC Counter
+                
+                ;JZ RowDown
+                ;CMP #31,RowUp
+                RET
+                
+
+
+;-------------------------------------------------------------
+;             Multiplexer
+;-------------------------------------------------------------
+              
+SPmult        POP R15   ; return address
+              POP R14   ; R14 == FFFFh
+              POP R13   ; R13 == Counter
+              
+              MOV #1,R10
+              CLR R11
+              CLR R12
+L2            BIT R10,R14
+              JZ L1
+              ADD R13,R12
+L1            RRC R12
+              RRC R11
+              RLA R10
+              JNZ L2
+              
+              push.w R12		    ; push to stack the multiplication High word
+	      push.w R11		    ; push to stack the multiplication Low word
+	      push.w R15		    ; push back the caller return address
+              ret
+
+
+
+;-------------------------------------------------------------
+;             Divider
+;-------------------------------------------------------------
+DIV16	  	pop.w R15			; R15 = the caller return address
+		pop.w R14			; R14 = y = Divisor
+		pop.w R13			; R13 = x = Dividend	                 
+                mov     #17,R10			; R10=DIV16_STEP_COUNTER=16+1
+                clr     R12                	; initialize the Quotient register
+                clr     R11		   	; initialize the shift-register {|R11|R13|} Upper Word                 
+DIVL3           rla     R12
+DIVL1           dec     R10
+                jz      DIVL2
+                rla     R13
+                rlc     R11
+                cmp     R14,R11
+                jlo     DIVL3
+                sub     R14,R11
+                setc
+                rlc     R12
+                jmp     DIVL1               
+DIVL2           push.w   R12		   	; push the Quotient into stack
+                push.w   R11		   	; push the Remainder into stack
+		push.w   R15			; push back the caller return address
+                ret		
+
+
+sting_handler             
+             ; put the ASCII value of each digit one after another in the memory (reversed order)
+               MOV #str,R8  ; R8 is a pointer to the lowest address of str
+               ;add #4, R8
+              ;Divider call
+Lp1           PUSH R6
+              PUSH #10
+              
+              CALL #DIV16
+              POP R9              ; R9 == the remain --> the digit we want
+              POP R6             ; R11 == the qoutient
+                
+              
+              ADD #48,R9       ; convert the digit to its ASCII code
+              ;MOV R9,0(R8)
+              
+              ;CMP #0, R6 ; ---- we need to make here a compare (or another way) to check if we don't need to divide anymore             
+              ;JZ LeaveLoop1
+              mov.b 0(R9), 3(R8)
+              inc R8
+              ;JMP Lp1 
+              PUSH R6
+              PUSH #10
+              
+              CALL #DIV16
+              POP R9              ; R9 == the remain --> the digit we want
+              POP R6             ; R11 == the qoutient
+                
+              
+              ADD #48,R9       ; convert the digit to its ASCII code
+              MOV 0(R9),0(R8)
+              ; we will call a function that converts the string
+              ;mov.b R9, 4(R8)
+LeaveLoop1     ; put the string on LCD
+               
+               PUSH #str          ; push a pointer to the string
+              ;PUSH.W #str
+              ;MOV #NumToStr,R8  
+              
+;----------------------------------------------------------------------              
+              CALL #lcd_clr
+              CALL #print_str
+;----------------------------------------------------------------------    
+
+              ;CALL #SetLEDs 
+              ret
+              
+;-------------------------------------------------------------
+             ENDMOD    
+             END

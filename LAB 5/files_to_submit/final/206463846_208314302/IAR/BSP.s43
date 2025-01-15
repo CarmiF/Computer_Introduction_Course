@@ -1,0 +1,90 @@
+#include  "BSP.h"
+
+            MODULE BSP
+            PUBLIC GPIOconfig,ST1_TAConf,ST2_TAConf,StopAllTimer,ST3_TAConf
+            EXTERN Main,PBs_handler,TA0_handler,TA1_handler
+            EXTERN TA0_LCD_Timer ;EXTEN LCD
+            RSEG   CODE                    
+;-----------------------------------------------------------------------------  
+;           GPIO congiguration
+;-----------------------------------------------------------------------------
+GPIOconfig 
+             mov.w   #WDTPW+WDTHOLD,&WDTCTL   ; hold watchdog timer
+            ; PushButtons Setup
+             bic.b   #0xFF,PBsArrPortSel    ; P2.0 and P2.1 to GPIO 
+             bic.b   #0x07,PBsArrPortDir    ; P2 INPUT
+             
+             bis.b   #0x03,PBsArrIntEdgeSel ;P2.0,P2.1 pull-up
+             bic.b   #0x04,PBsArrIntEdgeSel ;pull down - P2.3
+             bis.b   #0x07,PBsArrIntEn      ; ENABLE P2
+             bic.b   #0x07,PBsArrIntPend    ; clear pending P2 interrupts
+         
+             ; LCD Setup
+             bic.b   #0xFF,LCDsArrPortSel ; P1 to GPIO 
+             bis.b   #0xFF,LCDsArrPortDir ; P1 to output (will use as the data byte)
+             
+             bis.b   #0xE0,PBsArrPortDir  ; P2.7-P2.5 output
+             
+             
+             ; debug led Setup
+             ;bis.b   #0x04,PBsArrPortDir  ; P2.3(debug) output
+             
+             clr.b   LCDsArrPort    ; clear the data byte when start - maybe we dont need it
+             
+             
+
+             
+             
+             ; Config 2.4 to be an input for the timer A1 (works with CCR2)
+             BIS.B   #0x10,&P2SEL   
+             BIC.B   #0x10,&P2DIR
+             
+             ;BIC.B   #0xE0,&P2SEL ; P2.5, P2.6, P2.7 are the controllers of the LCD
+             ;BIS.B   #0xE0,&P2SEL ; P2.5, P2.6, P2.7 to outputs
+             ;ret
+
+StopAllTimer  ;CLR &TA0CTL
+              CLR &TA1CTL
+              CLR &TA1CCTL1
+              CLR &TA1CCTL2
+              RET
+
+ST1_TAConf  ;  up\down mode, enable interrupt from timer core
+            MOV     #TASSEL_2 + ID_3 + MC_3 + TACLR + TAIE, &TA1CTL
+            MOV     #0xFFFF,&TA1CCR0   ; put the max value --> will allow us an interrupt every 1 second
+            RET
+
+ST2_TAConf    
+             ; TA1 core config: count continous , enable interrupt from timer core 
+             MOV    #TASSEL_2 + ID_3 + MC_3 + TACLR + TAIE, &TA1CTL
+             MOV    #0xFFFF, TA1CCR0
+             ; CCR2 - what we need for P2.4 according to the data sheet (page 51)
+             ;MOV    #CM_3 + CCIS_0 + CAP + CCIE, &TA1CCTL2 ; capture on rising edge and falling edge, enable interrupt when capture
+             MOV    #CM_1 + CCIS_0 + CAP + CCIE , &TA1CCTL2 ; capture on rising edge , enable interrupt when capture
+             RET
+             
+ST3_TAConf  MOV     #TASSEL_2 + ID_3 + MC_3 + TACLR + TAIE, &TA1CTL
+            MOV     #0xE665,&TA1CCR0   ; put the max value --> will allow us an interrupt every 1 second
+            RET
+
+
+
+;---------------------------------------------------------------------------------------                  
+             COMMON  INTVEC   ; Interrupt Vectors-Begins a common segment name of INTVEC 
+;--------------------------------------------------------------------------------------
+             ORG     PORT2_VECTOR       ;PORT2 Interrupt Vector
+             DW      PBs_handler        ; interrupt handler = ISR
+             ORG     RESET_VECTOR       ; MSP430 RESET Vector
+             DW      Main  
+             ORG     TIMER0_A1_VECTOR   ; Timer TA0 Interrupt Vector
+             DW      TA0_LCD_Timer
+             ORG     TIMER1_A1_VECTOR   ; TA1
+             DW      TA1_handler
+             
+            
+             ENDMOD
+             END
+             
+             
+             
+    

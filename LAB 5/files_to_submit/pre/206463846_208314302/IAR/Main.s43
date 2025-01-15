@@ -1,0 +1,73 @@
+#include  "BSP.h"
+
+             NAME   MAIN
+             PUBLIC state,Main,ST2_first,ST2_second,TimeInterval,NumToStr,Counter, FSMLoop, str2,flag , RISEcount,str3,str4
+             EXTERN State0,State1,State2
+             EXTERN SysConfig
+             
+             ;LCD section
+             PUBLIC lcd_col,lcd_row,delay_ret_add, str
+             EXTERN lcd_init
+             
+;----------------------------------------------------------------------------------
+             ORG      DataSegStart         ; Begins a DATA segment
+             
+state        DW   0                        ; state variable
+ST2_first    DS16 1
+ST2_second   DS16 1
+Counter      DW 1
+RISEcount      DW 0
+TimeInterval DS32 1
+NumToStr     DS8 16
+flag         DW 0
+;StrLength    DS16 1
+
+;----------------------------
+;LCD section
+lcd_col         DB      0
+lcd_row         DB      0
+delay_ret_add   DW      0
+str             DB      "01:00"
+str2             DB      "00:00"
+str3             DB      "Measured freq:"
+str4             DB      "Hz"
+
+
+;----------------------------
+
+
+;-------------------------------------------------------------------------------------          
+             ;RSEG    CSTACK    ; shows to compiler where is the RAM populating limit
+                                ; can be ignored
+;-------------------------------------------------------------------------------------
+             ORG     CodeSegStart       ; Program Reset = Begins a CODE segment
+             
+Main         mov.w   #StackTosStart,SP  ; Initialize stack pointer to the RAM end 
+             call    #SysConfig
+             mov.w      #TASSEL_2 + MC_0 + TACLR, &TA0CTL         ; SMCLK
+             call #lcd_init 
+             
+             ;CALL    #lcd_init ;- we will probably put it inside the states
+             MOV     #0,state              ; set to idle state at the beginning
+             
+;---------------------- FSM_loop -------------------------------------
+FSMLoop      CMP     #0x00,state         ;check if state0           
+             JNZ     skp_state1
+             call    #State0              ; clear LED + go to sleep
+
+skp_state1   CMP     #0x01,state         ;check if state1
+             JNZ     skp_state2
+             CALL    #State1
+            
+skp_state2   CMP     #0x02,state         ;check if state2
+             JNZ     FSMLoop  
+             CALL    #State2
+            
+;skp_state3   CMP     #0x03,state         ;check if state3
+             ;JNZ     FSMLoop
+             ;CALL    #State3       
+                       
+    
+             jmp     FSMLoop       
+                 
+             END
