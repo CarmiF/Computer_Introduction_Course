@@ -1,0 +1,111 @@
+#include  "BSP.h"
+
+            MODULE BSP
+            PUBLIC GPIOconfig,ST1_ADC_Conf,ADC_Req_Smple,Stop_ADC, ST1_TAConf
+            EXTERN Main,PBs_handler,ADC_ISR, TA1_handler
+            
+            PUBLIC LCDconfig ;LCD PUBLIC
+            EXTERN TA0_ISR, lcd_init, lcd_clr ;LCD EXTERN
+             
+            RSEG   CODE                    
+;-----------------------------------------------------------------------------  
+;           GPIO congiguration
+;-----------------------------------------------------------------------------
+GPIOconfig 
+             mov.w   #WDTPW+WDTHOLD,&WDTCTL   ; hold watchdog timer
+            ; PushButtons Setup
+             bic.b   #0x05,PBsArrPortSel      ; P1 IO
+             bic.b   #0x05,PBsArrPortDir      ; P1 INPUT
+             bis.b   #0x05,PBsArrIntEdgeSel   ;P1.0,P1.1 pull-up
+             ;bic.b   #0x0C,PBsArrIntEdgeSel  ;P1.2,P1.3 pull-down
+             bis.b   #0x05,PBsArrIntEn        ; ENABLE P1
+             bic.b   #0x05,PBsArrIntPend      ; clear pending P1 interrupts
+                    
+             ; LCD GPIO Setup
+             bic.b   #0xFF,LCDsArrPortSel     ; P2 GPIO capability
+             bis.b   #0xFF,LCDsArrPortDir     ; P2 output dir
+             bis.b   #0xE0,PBsArrPortDir      ; P1.7-P2.5 output
+             clr.b   LCDsArrPort              ; P2 clear LEDs
+             
+             ret
+
+
+;-----------------------------------------------------------------------------  
+;           LCD congiguration
+;-----------------------------------------------------------------------------
+LCDconfig    call   #Cfg_LCD_Timer
+             call   #lcd_init
+             call   #lcd_clr
+
+;-----------------------------------------------------------------------------  
+;           ADC congiguration
+;-----------------------------------------------------------------------------
+ST1_ADC_Conf ; T = T_osc * (64 + 13), multiple conversion
+             mov      #SREF_0 + ADC10SHT_3 + ADC10ON + ADC10IE + MSC ,&ADC10CTL0
+
+             ; A2 , SMCLK, single channel and single conv
+             mov      #INCH_2 + SHS_0 + ADC10SSEL_0 + CONSEQ_2  ,&ADC10CTL1
+             
+             ; Enable A2 (P1.2) to Analog input to ADC
+             BIS.B    #0x2, &ADC10AE0
+
+              ; Enable conversion
+             BIS      #ENC,&ADC10CTL0
+
+             ret
+
+ADC_Req_Smple ; request conversion
+            BIS      #ADC10SC,&ADC10CTL0
+            
+            ret
+
+             
+Stop_ADC    ; Enable conversion
+             BIC      #ENC + ADC10IE,&ADC10CTL0
+             
+             ret
+             
+             
+;-----------------------------------------------------------------------------  
+;           LCD timer congiguration
+;-----------------------------------------------------------------------------
+Cfg_LCD_Timer
+             mov.w     #TASSEL_2 + MC_0 + TACLR, &TA0CTL         ; SMCLK
+             ret
+
+;-----------------------------------------------------------------------------  
+;           A1 timer functions
+;-----------------------------------------------------------------------------
+
+ST1_TAConf  ;  up\down mode, enable interrupt from timer core
+            MOV     #TASSEL_2 + ID_3 + MC_3 + TACLR + TAIE, &TA1CTL
+            MOV     #0xFFFF,&TA1CCR0   ; put the max value --> will allow us an interrupt every 1 second
+            RET
+
+StopAllTimer  CLR &TA1CTL
+              CLR &TA1CCTL1
+              CLR &TA1CCTL2
+              RET
+
+;---------------------------------------------------------------------------------------                  
+             COMMON  INTVEC   ; Interrupt Vectors-Begins a common segment name of INTVEC 
+;--------------------------------------------------------------------------------------
+             ORG     PORT1_VECTOR       ;PORT1 Interrupt Vector
+             DW      PBs_handler        ; interrupt handler = ISR
+             ORG     RESET_VECTOR       ; MSP430 RESET Vector
+             DW      Main  
+             ORG     ADC10_VECTOR       ; ADC ISR
+             DW      ADC_ISR
+             ORG     TIMER0_A1_VECTOR    ;A0 LCD Timer Vector
+             DW      TA0_ISR
+             ORG     TIMER1_A1_VECTOR   ; Timer A1
+             DW      TA1_handler
+
+
+            
+             ENDMOD
+             END
+             
+             
+             
+    

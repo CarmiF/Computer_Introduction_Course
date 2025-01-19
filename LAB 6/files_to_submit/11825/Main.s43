@@ -1,0 +1,69 @@
+#include  "BSP.h"
+
+             NAME   MAIN
+             PUBLIC state,Main, ConVdel
+             EXTERN State0,State1,State2,State3
+             EXTERN SysConfig
+             
+             ;Strings section
+             PUBLIC dot,Vavg, Volt
+             ;LCD section
+             PUBLIC lcd_col,lcd_row,delay_ret_add
+             EXTERN lcd_init
+
+             
+;----------------------------------------------------------------------------------
+             ORG      DataSegStart         ; Begins a DATA segment
+             
+state        DW   0                        ; state variable
+;Navg         DW   1001
+ConVdel      DW   227                     ; create the constant of delta V
+
+
+;LCD section
+lcd_col         DB      0
+lcd_row         DB      0
+delay_ret_add   DW      0
+
+;Strings section
+Vavg            DB      "Vavg = "
+Volt            DB      "[v]"
+dot             DB      "."
+
+;-------------------------------------------------------------------------------------          
+             ;RSEG    CSTACK    ; shows to compiler where is the RAM populating limit
+                                ; can be ignored
+;-------------------------------------------------------------------------------------
+             ORG     CodeSegStart       ; Program Reset = Begins a CODE segment
+             
+Main         mov.w   #StackTosStart,SP  ; Initialize stack pointer to the RAM end 
+             call    #SysConfig
+             MOV     #0,state              ; set to idle state at the beginning
+             
+;---------------------- FSM_loop -------------------------------------
+FSMLoop      CMP     #0x00,state         ;check if state0           
+             JNZ     skp_state1
+             call    #State0              ; clear LED + go to sleep
+
+skp_state1   CMP     #0x01,state         ;check if state1
+             JNZ     skp_state2
+             ;DINT  
+             CALL    #State1
+             ;EINT
+            
+skp_state2   CMP     #0x02,state         ;check if state2
+             JNZ     skp_state3
+             ;DINT  
+             CALL    #State2
+             ;EINT
+            
+skp_state3   CMP     #0x03,state         ;check if state3
+             JNZ     FSMLoop
+             DINT  
+             CALL    #State3
+             EINT          
+                       
+    
+             jmp     FSMLoop       
+                 
+             END
