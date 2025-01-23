@@ -8,15 +8,18 @@
 #define  StackTosStart     0x0400   //STACK
 
 #define   debounceVal      642      
-
+#define   state2_samp_num      63    
+#define LEDsArrPort        &P2OUT
 // LCDs abstraction
 #define LCDsArrPort        &P2OUT
 #define LCDsArrPortDir     &P2DIR
 #define LCDsArrPortSel     &P2SEL
+#define LCD_ERSRW_pin      &P1OUT
 
 #define del200us 210        
 #define del15ms  15728
 #define del5ms   5242
+#define delayState1  30000
 
 #define ENctrl 	 0x20
 #define RSctrl 	 0x40
@@ -25,7 +28,7 @@
 
 // PushButtons abstraction
 #define PBsArrPort	   &P1IN
-#define LCD_ERSRW_pin      &P1OUT
+
 #define PBsArrIntPend	   &P1IFG 
 #define PBsArrIntEn	   &P1IE
 #define PBsArrIntEdgeSel   &P1IES

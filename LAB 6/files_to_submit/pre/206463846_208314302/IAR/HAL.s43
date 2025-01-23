@@ -1,9 +1,9 @@
 #include  "BSP.h"
 
               MODULE HAL
-              PUBLIC EnterSleep,SysConfig,ClrLEDs,PBs_handler,delay,SetLEDs,ADC_ISR,Get_ADC10MEM, TA1_handler
-              EXTERN GPIOconfig,ST1_ADC_Rdy             
-              EXTERN state
+              PUBLIC EnterSleep,SysConfig,PBs_handler,delay,ADC_ISR,Get_ADC10MEM, TA1_handler, delay
+              EXTERN GPIOconfig,ST1_ADC_Rdy, ST2_ADC_Rdy, ADC_Req_Smple, Acummolator,State1            
+              EXTERN state, print_num,counter, ST2_ADC_Conf, lcd_clr,StopSamplesST1, StopAllTimer
               
               ;LCD section
               EXTERN LCDconfig;EXTERN LCD
@@ -21,30 +21,17 @@ EnterSleep    bis.w   #CPUOFF+GIE,SR
 ;             System Configuration  
 ;--------------------------------------------------------------------
 SysConfig     call #GPIOconfig
-              call #LCDconfig
+              
               
               ret
  
-;--------------------------------------------------------------------
-;Clear LEDs - void function (without arguments and return value)
-;--------------------------------------------------------------------
-ClrLEDs       clr.b LCDsArrPort
-          
-              ret                 
-;--------------------------------------------------------------------
-;Set value to LEDs - void function
-;--------------------------------------------------------------------
-SetLEDs       pop   R4  ;  PC to return
-              pop   R5  ; Argument
-              MOV.B R5, LCDsArrPort ; move value to LEDs
-              push  R4
-              ret  
 
 ;----------------------------------------------------------------------- 
 ;            PORT2 Interrupt Service Routine
 ;-----------------------------------------------------------------------
-PBs_handler      
+PBs_handler  call #StopAllTimer
              ; backup R4,R5 in stack for avoid overwriting
+             
              push   R4
              push   R5
              push.w #debounceVal
@@ -58,11 +45,15 @@ PBs_handler
              reti                ; interrupt hapened from another source
              
 PB0sel       mov    #1,state 
+             
              bic.b  #PB0,PBsArrIntPend    ; Clear IFG flag
+             ;call   #lcd_clr
              jmp    exitLPM0
 
 PB1sel       mov    #2,state
+           
              bic.b  #PB1,PBsArrIntPend    ; Clear IFG flag
+             ;call   #lcd_clr
              jmp    exitLPM0
 
 PB2sel       mov    #3,state
@@ -82,8 +73,11 @@ exitLPM0     pop    R5
 ;            ADC10 Interrupt Service Routine
 ;-----------------------------------------------------------------------
 ADC_ISR      cmp    #1,state
-             JNZ    Ext_ADC_ISR
+             JNZ    st2
              CALL   #ST1_ADC_Rdy
+st2          cmp    #2,state
+             JNZ    Ext_ADC_ISR
+             CALL   #ST2_ADC_Rdy
              
 Ext_ADC_ISR  RETI
 
@@ -115,9 +109,11 @@ TA1_handler
             reti                            ; Return from overflow ISR
 
 
-TA1_Core    jmp TA1_Core
+TA1_Core    nop 
+           
+             
             
-TA1_CCR2 jmp TA1_CCR2
+TA1_CCR2 nop
 
 
 ;----------------------------------------------------------------------------------------------
@@ -132,6 +128,9 @@ L               dec.w   R5      ;function body begin
                 push.w  R4
                 ret        
 ;----------------------------------------------------------------------------------------------
+
+             
+             
              ENDMOD
              END
 

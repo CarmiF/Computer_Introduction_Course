@@ -1,0 +1,151 @@
+#include  "BSP.h"
+
+              MODULE HAL
+              PUBLIC EnterSleep,SysConfig,PBs_handler,delay,ADC_ISR,Get_ADC10MEM, TA1_handler, delay,SetOutput, ClrOutput
+              EXTERN GPIOconfig,ST1_ADC_Rdy, ST2_ADC_Rdy, ADC_Req_Smple, Acummolator,State1,ST3_ADC_Rdy           
+              EXTERN state, print_num,counter, ST2_ADC_Conf, lcd_clr,StopSamplesST1, StopAllTimer
+              
+              ;LCD section
+              EXTERN LCDconfig;EXTERN LCD
+              PUBLIC TA0_ISR ; LCD PUBLIC
+            
+              RSEG   CODE
+
+;--------------------------------------------------------------------
+;             System Configuration  
+;--------------------------------------------------------------------
+EnterSleep    bis.w   #CPUOFF+GIE,SR
+              ret
+
+;--------------------------------------------------------------------
+;             System Configuration  
+;--------------------------------------------------------------------
+SysConfig     call #GPIOconfig
+              
+              
+              ret
+
+SetOutput     pop R4
+              POP R5
+              BIS.B R5,&P1OUT
+              PUSH R4
+              RET
+ClrOutput     pop R4
+              POP R5
+              BIC.B R5,&P1OUT
+              PUSH R4
+              RET
+;----------------------------------------------------------------------- 
+;            PORT2 Interrupt Service Routine
+;-----------------------------------------------------------------------
+PBs_handler  call #StopAllTimer
+             ; backup R4,R5 in stack for avoid overwriting
+             
+             push   R4
+             push   R5
+             push.w #debounceVal
+             call   #delay    
+             bit.b  #PB0,PBsArrIntPend   ;check if PB0 is pushed
+             jnz    PB0sel 
+             bit.b  #PB1,PBsArrIntPend   ;check if PB1 is pushed
+             jnz    PB1sel
+             bit.b  #PB2,PBsArrIntPend   ;check if PB2 is pushed
+             jnz    PB2sel
+             reti                ; interrupt hapened from another source
+             
+PB0sel       mov    #1,state 
+             
+             bic.b  #PB0,PBsArrIntPend    ; Clear IFG flag
+             ;call   #lcd_clr
+             jmp    exitLPM0
+
+PB1sel       mov    #2,state
+           
+             bic.b  #PB1,PBsArrIntPend    ; Clear IFG flag
+             ;call   #lcd_clr
+             jmp    exitLPM0
+
+PB2sel       mov    #3,state
+             bic.b  #PB2,PBsArrIntPend    ; Clear IFG flag
+             jmp    exitLPM0
+
+
+exitLPM0     pop    R5
+             pop    R4
+             bic    #CPUOFF,0(SP)  ; Exit LMP0
+             
+ 
+             reti
+
+
+;----------------------------------------------------------------------- 
+;            ADC10 Interrupt Service Routine
+;-----------------------------------------------------------------------
+ADC_ISR      cmp    #1,state
+             JNZ    st2
+             CALL   #ST1_ADC_Rdy
+st2          cmp    #2,state
+             JNZ    st3
+             CALL   #ST2_ADC_Rdy
+st3          cmp    #3,state
+             JNZ    Ext_ADC_ISR
+             CALL   #ST3_ADC_Rdy
+              
+             
+Ext_ADC_ISR  RETI
+
+
+Get_ADC10MEM  pop   R4
+              push  &ADC10MEM
+              push  R4
+              ret
+              
+              
+;----------------------------------------------------------------------- 
+;            LCD Timer Interrupt Service Routine
+;-----------------------------------------------------------------------   
+TA0_ISR   bic       #TAIFG + MC_1, &TA0CTL   ; srvice for timerA0
+          bic       #CPUOFF,0(SP)        
+          reti
+
+;----------------------------------------------------------------------- 
+;            TimerA1 Interrupt Service Routine
+;-----------------------------------------------------------------------
+TA1_handler 
+            ADD    &TA1IV,PC                ; Add Timer_A offset vector
+            JMP    TA1_Core                
+            reti                            ; CCR1
+            jmp    TA1_CCR2                 ; CCR2
+            reti                            ; CCR3
+            reti                            ; CCR4
+            JMP     TA1_Core 
+            reti                            ; Return from overflow ISR
+
+
+TA1_Core    nop 
+           
+             
+            
+TA1_CCR2 nop
+
+
+;----------------------------------------------------------------------------------------------
+;            Polling based Delay function
+;----------------------------------------------------------------------------------------------                     
+delay           pop   R4        ; save return address
+                pop   R5        ; get delay value
+             
+L               dec.w   R5      ;function body begin                 
+                jnz     L       ;function body end
+             
+                push.w  R4
+                ret        
+;----------------------------------------------------------------------------------------------
+
+             
+             
+             ENDMOD
+             END
+
+
+ 

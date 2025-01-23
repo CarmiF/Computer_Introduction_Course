@@ -1,0 +1,479 @@
+#include  "BSP.h"
+
+             MODULE API
+             PUBLIC State0,State1,State2,State3,ST1_ADC_Rdy, ST2_ADC_Rdy,ST3_ADC_Rdy
+             EXTERN EnterSleep,ST1_ADC_Conf,Get_ADC10MEM, MultNum, state, ST2_ADC_Conf,var2,var1,SetOutput,ClrOutput
+            
+             EXTERN VavgStr,Volt,Navg,ClrLEDs, SetLEDs,counter, delay ; string EXTERN
+             EXTERN StopAllTimer, ST2_TAConf,Acummolator,pwm,triangle,sine, ret_adr,SetLeds
+             EXTERN print_ch, lcd_clr, print_str, lcd_cmd ;LCD EXTERN
+             EXTERN FstDevPlaces,SndDevPlaces,StopSamplesST1,StartSamples,FstDerKind,SndDerKind,SampSavedPlaces,SigStr
+            EXTERN BigAcummo, SmallAcummo, SmallCounter,BigCounter, VavgStr
+             RSEG   CODE
+
+
+;-------------------------------------------------------------
+;             State0
+;-------------------------------------------------------------
+State0        ;go to sleep
+              call #EnterSleep
+              ret
+              
+;-----------------------------------------------------------------------------  
+GoOut        POP R4
+             POP R5
+             cmp    #1,state
+             JNZ    st2
+             JMP    State1
+st2          cmp    #2,state
+             JNZ    st3
+             JMP    State2
+st3          ;cmp    #3,state
+             ;JNZ    Ext_ADC_ISR
+             JMP    State3
+              
+;-------------------------------------------------------------
+;             State3
+;-------------------------------------------------------------
+State3        call #lcd_clr   
+              call #StopSamplesST1
+              CALL  #ST1_ADC_Conf
+              
+              CLR R7   ; counter
+              
+              ; ADC request
+              CALL  #StartSamples
+              
+              ; go to sleep
+              call #EnterSleep
+              RET
+              
+;-----------------------------------------------------------------------------               
+ST3Lp         EINT
+              NOP
+              DINT
+              cmp #3,state
+              jnz GoOut 
+
+              CALL  #StartSamples
+              RET
+              
+  ;-----------------------------------------------------------------------------               
+ST3_ADC_Rdy   call #StopSamplesST1 
+            
+              call #Get_ADC10MEM
+              pop R5
+              cmp #0,R7
+              JZ AddToVar1
+              MOV R5,var2
+              SUB var1,var2
+              ; check if the result of the subtruction is negative - we only need the absolute value
+               CMP  #0,var2     
+               JGE   SubIsPos3
+               ; if negative, convert to positive by using 2's complement (do the "reverse" way)
+               DEC  var2               ; add 1 back     
+               XOR  #0xFFFF,var2      ; convert each bit value to it's complement (1 or 0 obviously)  
+SubIsPos3      cmp #20,var2
+               JGE DerNotZero
+               push #0x10
+               call #ClrOutput
+               clr R7
+               JMP ST3Lp
+               
+DerNotZero     push #0x10
+               call #SetOutput 
+               clr R7
+               JMP ST3Lp
+              
+
+AddToVar1     mov R5,var1  
+              inc R7
+              JMP ST3Lp
+
+
+
+;-------------------------------------------------------------
+;             State1
+;-------------------------------------------------------------
+State1        call #lcd_clr
+              ;call #StopAllTimer
+              ;call #Stop_ADC
+              call #StopSamplesST1
+              ; ADC config
+              CALL  #ST1_ADC_Conf
+  
+              ; R6 is a pointer to the first saved place in the array
+              mov #SampSavedPlaces,R6
+              ; R7 is the iteration counter for the creation of the converted values array
+              CLR R7
+                        
+              ; ADC request
+              CALL  #StartSamples
+              
+              ; go to sleep
+              call #EnterSleep
+              RET
+  ;-----------------------------------------------------------------------------               
+ST1Lp         EINT
+              NOP
+              DINT
+              cmp #1,state
+              jnz GoOut 
+
+              CALL  #StartSamples
+              RET
+              
+  ;-----------------------------------------------------------------------------               
+ST1_ADC_Rdy   call #StopSamplesST1 
+            
+              call #Get_ADC10MEM
+              pop R5
+              MOV R5,0(R6)          ; store each converted value in place R6 poits to
+              INCD R6
+              INC R7
+              CMP #29,R7
+              JZ CalcFstDevs
+              JMP ST1Lp
+  ;-----------------------------------------------------------------------------               
+CalcFstDevs   call #FstDerivatives   ; create the array of the first derivatives
+              call #SndDerivatives   ; create the array of the second derivatives
+              call #FstDerChecker  ; check the kind of 2nd derivatives
+              call #SndDerChecker   ; check the kind of 2nd derivatives
+              
+              ; print the kind of the wave
+              cmp #9,FstDerKind   ; we made it 10 so we will have room for mistakes
+              JL PrintPWM
+              cmp #14,SndDerKind   ; we made it 10 so we will have room for mistakes
+              JL PrintTriangle
+              JMP printSine
+              ; if we got here we need to print the sinus kind
+
+ ;-----------------------------------------------------------------------------             
+FstDerivatives   MOV #SampSavedPlaces, R4   ; R4 is a pointer to the fisrt converted value
+                 MOV #FstDevPlaces, R5      ; R5 is a pointer to the fisrt saved place for first derivtive
+                 MOV #27,R6                 ; R6 is the iteration counter
+        
+DerCalLp         ; put 2 following converted values in R7 and R8
+                  MOV 0(R4), R7           
+                  MOV 2(R4), R8                
+              
+                  SUB  R8, R7
+               
+                  ; check if the result of the subtruction is negative - we only need the absolute value
+                  CMP  #0,R7     
+                  JGE   SubIsPos21
+                  ; if negative, convert to positive by using 2's complement (do the "reverse" way)
+                  DEC  R7               ; add 1 back     
+                  XOR  #0xFFFF,R7       ; convert each bit value to it's complement (1 or 0 obviously)  
+SubIsPos21         MOV R7, 0(R5) ; save the derivetive in it's saved places pointed by R6
+                  ; incd the pointers 
+                  INCD R4    
+                  INCD R5    
+                  DEC R6
+                  JZ FinishLp1
+                  JMP DerCalLp
+               
+FinishLp1         RET
+;-----------------------------------------------------------------------------               
+SndDerivatives    MOV #FstDevPlaces, R4   ; R4 is a pointer to the fisrt derivative value      
+                  MOV #SndDevPlaces, R5   ; R5 is a pointer to the fisrt saved place for second derivtive
+                  MOV #26, R6             ; R6 is the iteration counter  
+        
+SndDerLp          MOV 0(R4), R7
+                  MOV 2(R4), R8                            
+               
+                  SUB  R8,R7
+                
+                  CMP  #0,R7     
+                  JGE   SubIsPos22
+                  DEC  R7            
+                  XOR  #0xFFFF, R7
+                 
+SubIsPos22         MOV R7, 0(R5)
+                  INCD R4
+                  INCD R5
+                  DEC R6
+                  JNZ SndDerLp
+              
+                  RET                
+;----------------------------------------------------------------------------- 
+FstDerChecker CLR FstDerKind   ; FstDerKind is the counter that will identify the signal type
+              MOV   #FstDevPlaces,R4  ; R4 is a pointer to the first element in the first derivatives array
+              MOV   #29,R5           ; R5 is the iteration counter 
+ChkLp1        MOV @R4+,R6             ; R6 holds the pointed value in the array 
+              cmp #3,R6
+              JL NoAdd1
+              INC FstDerKind
+NoAdd1        DEC R5
+              JNZ ChkLp1
+              
+              RET
+;-----------------------------------------------------------------------------             
+SndDerChecker CLR SndDerKind   ; SndDerKind is the counter that will identify the signal type
+              MOV   #SndDevPlaces,R4  ; R4 is a pointer to the first element in the second derivatives array
+              MOV   #27,R5           ; R5 is the iteration counter 
+ChkLp2        MOV @R4+,R6             ; R6 holds the pointed value in the array 
+              cmp #5,R6
+              JL NoAdd2
+              INC SndDerKind
+NoAdd2        DEC R5
+              JNZ ChkLp2
+              
+              RET
+;-----------------------------------------------------------------------------     
+printSine     call #lcd_clr
+              PUSH.W  #SigStr
+              CALL    #print_str
+              push #0xC0
+              call #lcd_cmd 
+              PUSH.W  #sine
+              CALL    #print_str
+              ; R6 is a pointer to the first saved place in the array
+              mov #SampSavedPlaces,R6
+              ; R7 is the iteration counter
+              CLR R7
+              ;push       #delayState1
+              ;call       #delay
+              JMP ST1Lp
+                           
+ ;-----------------------------------------------------------------------------                 
+PrintPWM      call #lcd_clr
+              PUSH.W  #SigStr
+              CALL    #print_str
+              push #0xC0
+              call #lcd_cmd 
+              PUSH.W  #pwm
+              CALL    #print_str
+              ; R6 is a pointer to the first saved place in the array
+              mov #SampSavedPlaces,R6
+              ; R7 is the iteration counter
+              CLR R7
+              ;push       #delayState1
+              ;call       #delay
+              JMP ST1Lp
+              
+ ;-----------------------------------------------------------------------------                   
+PrintTriangle call #lcd_clr
+              PUSH.W  #SigStr
+              CALL    #print_str
+              push #0xC0
+              call #lcd_cmd 
+              PUSH.W  #triangle
+              CALL    #print_str
+              ; R6 is a pointer to the first saved place in the array
+              mov #SampSavedPlaces,R6
+              ; R7 is the iteration counter
+              CLR R7
+              ;push       #delayState1
+              ;call       #delay
+              JMP ST1Lp
+;-------------------------------------------------------------
+;             State2
+;-------------------------------------------------------------
+State2        ;call #Stop_ADC
+              call #StopSamplesST1
+              mov  #0, Acummolator
+              
+              call #lcd_clr
+              call #ST2_ADC_Conf
+              CALL  #StartSamples
+            
+              CALL    #EnterSleep
+             
+              ret
+              
+
+
+;-------------------------------------------------------------
+;             State3
+;-------------------------------------------------------------
+;State3                    
+              ;nop
+              ;ret
+                
+
+
+            
+;-------------------------------------------------------------
+;             Convert ADC(0-1023) to V(0-3.55)
+;-------------------------------------------------------------           
+ST2_ADC_Rdy   call #Get_ADC10MEM
+              pop   R5
+              ADD R5, SmallAcummo
+              ;CALL   #ADC_Req_Smple
+              DEC     BigCounter
+              JZ      print
+              DEC     SmallCounter
+              JZ      Store32Samp  
+              CALL    #StartSamples
+              ret
+ ;-----------------------------------------------------------------------------  
+Store32Samp   RRA  SmallAcummo
+              RRA  SmallAcummo
+              RRA  SmallAcummo
+              RRA  SmallAcummo
+              RRA  SmallAcummo
+              ADD SmallAcummo, BigAcummo
+              mov  #0, SmallAcummo
+              mov  #32, SmallCounter
+              CALL    #StartSamples
+              ret
+ ;-----------------------------------------------------------------------------  
+print        CALL  #StopSamplesST1
+              mov.w  #1023, BigCounter
+              RRA  BigAcummo
+              RRA  BigAcummo
+              RRA  BigAcummo
+              RRA  BigAcummo
+              RRA  BigAcummo
+            
+              PUSH.W  BigAcummo ; value to print
+              mov  #0, BigAcummo
+              mov  #1024, BigCounter
+              CALL    #Conv_ADCtoV
+              EINT
+              NOP            
+              DINT
+              cmp #2,state
+              jnz GoOut 
+              CALL    #StartSamples
+              
+              ret
+ 
+     
+ ;-----------------------------------------------------------------------------  
+Conv_ADCtoV
+              pop ret_adr  ;Address to return
+              POP var1
+              RLA var1
+              RLA var1
+              RLA var1
+              RLA var1
+              ; we will multiply MultNum with var1
+              PUSH var1
+              PUSH MultNum
+              CALL #SPmult
+              POP var1        ; var1 has the left num 
+              POP var2        ; var2 has the right num  
+              ; now will rotate the words 4 times right
+              RRA var2
+              RRC var1
+              RRA var2
+              RRC var1
+              RRA var2
+              RRC var1
+              RRA var2
+              RRC var1
+              ; now var2 holds the value of the left digit
+              call #lcd_clr
+              PUSH.W  #VavgStr
+              CALL    #print_str
+             
+             ; the digit and dot
+              ; ---------
+              ADD     #48,var2
+              PUSH.W  var2
+              CALL    #print_ch
+
+              PUSH.W  #46 ; dot    
+              CALL    #print_ch
+               ; ---------
+              
+              ; now we will multiply the left word with 1,000 (03E8h hex)
+              ; after multiplication the 3 digits to print will be held by the higher word 
+              PUSH var1
+              PUSH #03E8h
+              CALL #SPmult
+              POP var1        ; var1 holds the lower word of result
+              POP var2        ; var2 holds the higher word of result - the one to print
+              
+              ; --------- now we will print the number we got in var2  -------
+              
+              push #0x14
+              call #lcd_cmd
+              push #0x14
+              call #lcd_cmd
+              push #0x14
+              call #lcd_cmd
+              push #Volt
+              call #print_str
+              push #0x10
+              call #lcd_cmd
+               push #0x10
+              call #lcd_cmd
+printDig      push var2
+              push #10
+              CALL #DIV16
+              POP var1              ; var1 is the remain the digit to print
+              POP var2             ; the qoutient
+                     
+              ADD #48,var1
+              push var1
+              CALL #print_ch
+              push #0x10
+              call #lcd_cmd
+              push #0x10
+              call #lcd_cmd
+              
+              CMP #0,var2
+              JNZ printDig
+              
+
+              push ret_adr      ;Address to return
+              ret
+  
+;-------------------------------------------------------------
+;             Multiplexer
+;-------------------------------------------------------------
+              
+SPmult        POP R15   ; return address
+              POP R14   ; R14 == FFFFh
+              POP R13   ; R13 == Counter
+              
+              MOV #1,R10
+              CLR R11
+              CLR R12
+L2            BIT R10,R14
+              JZ L1
+              ADD R13,R12
+L1            RRC R12
+              RRC R11
+              RLA R10
+              JNZ L2
+              
+              push.w R12		    ; push to stack the multiplication High word
+	      push.w R11		    ; push to stack the multiplication Low word
+	      push.w R15		    ; push back the caller return address
+              ret
+
+
+
+;-------------------------------------------------------------
+;             Divider
+;-------------------------------------------------------------
+DIV16	  	pop.w R15			; R15 = the caller return address
+		pop.w R14			; R14 = y = Divisor
+		pop.w R13			; R13 = x = Dividend	                 
+                mov     #17,R10			; R10=DIV16_STEP_COUNTER=16+1
+                clr     R12                	; initialize the Quotient register
+                clr     R11		   	; initialize the shift-register {|R11|R13|} Upper Word                 
+DIVL3           rla     R12
+DIVL1           dec     R10
+                jz      DIVL2
+                rla     R13
+                rlc     R11
+                cmp     R14,R11
+                jlo     DIVL3
+                sub     R14,R11
+                setc
+                rlc     R12
+                jmp     DIVL1               
+DIVL2           push.w   R12		   	; push the Quotient into stack
+                push.w   R11		   	; push the Remainder into stack
+		push.w   R15			; push back the caller return address
+                ret	
+            
+            
+            
+            ENDMOD    
+             END

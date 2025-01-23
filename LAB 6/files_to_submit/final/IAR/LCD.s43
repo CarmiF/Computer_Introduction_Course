@@ -13,8 +13,11 @@ lcd_trig  bis.b     #ENctrl, LCD_ERSRW_pin		; ENctrl=1
           bic.b     #ENctrl, LCD_ERSRW_pin		; ENctrl=0
           ret
 //=============================================================
-lcd_init  
-          bic.b      #RWctrl + RSctrl + ENctrl, LCD_ERSRW_pin  ; EN='0', RS='0', RW='0'
+;lcd_init  
+
+lcd_init 
+
+          bic.b      #RWctrl + RSctrl + ENctrl, &P1OUT  ; EN='0', RS='0', RW='0'
           push       #del15ms
           call       #delay
           mov.b      #0x3F, LCDsArrPort

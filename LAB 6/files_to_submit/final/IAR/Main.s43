@@ -1,34 +1,54 @@
 #include  "BSP.h"
 
              NAME   MAIN
-             PUBLIC state,Main, ConVdel
+             PUBLIC state,Main, MultNum, counter, Acummolator
              EXTERN State0,State1,State2,State3
              EXTERN SysConfig
-             
-             ;Strings section
-             PUBLIC dot,Vavg, Volt
-             ;LCD section
-             PUBLIC lcd_col,lcd_row,delay_ret_add
+             PUBLIC FstDevPlaces,SndDevPlaces,FstDerKind,SndDerKind,SampSavedPlaces,pwm,triangle,sine,SigStr
+             PUBLIC VavgStr,Volt
+             PUBLIC lcd_col,lcd_row,delay_ret_add, Acummolator,var2,var1
              EXTERN lcd_init
-
+             PUBLIC BigAcummo, SmallAcummo, SmallCounter,BigCounter, VavgStr,ret_adr
              
 ;----------------------------------------------------------------------------------
              ORG      DataSegStart         ; Begins a DATA segment
              
-state        DW   0                        ; state variable
-;Navg         DW   1001
-ConVdel      DW   227                     ; create the constant of delta V
-
-
+state         DW   0                        ; state variable
+MultNum       DW   231                      ; create the constant of delta V
+counter       DW   state2_samp_num
+Acummolator   DW   0
+var1          DW   0
+var2          DW   0
+BigCounter    DW   1023
+SmallCounter       DW   32
+BigAcummo          DW   0
+SmallAcummo        DW   0
 ;LCD section
 lcd_col         DB      0
 lcd_row         DB      0
 delay_ret_add   DW      0
-
+ret_adr         DW      0
 ;Strings section
-Vavg            DB      "Vavg = "
-Volt            DB      "[v]"
-dot             DB      "."
+VavgStr         DB      "Vavg = "
+Volt            DB      "v"
+
+FstDerKind        DW 0
+SndDerKind        DW 0
+
+
+SigStr            DW      "Signal Shape:"
+pwm               DW      "PWM"
+triangle          DW      "   Triangle"
+sine              DW      " __Sine "
+
+
+waveState         DB 0
+; arrays section (state 1)
+SampSavedPlaces   DS16 30 ; save 30 places for 30 samples
+FstDevPlaces      DS16 29  ; save 29 places for 29 first derivetives
+SndDevPlaces      DS16 28  ; save 28 places for 28 second derivetives
+
+
 
 ;-------------------------------------------------------------------------------------          
              ;RSEG    CSTACK    ; shows to compiler where is the RAM populating limit
@@ -47,15 +67,15 @@ FSMLoop      CMP     #0x00,state         ;check if state0
 
 skp_state1   CMP     #0x01,state         ;check if state1
              JNZ     skp_state2
-             ;DINT  
+             DINT  
              CALL    #State1
-             ;EINT
+             EINT
             
 skp_state2   CMP     #0x02,state         ;check if state2
              JNZ     skp_state3
-             ;DINT  
+             DINT  
              CALL    #State2
-             ;EINT
+             EINT
             
 skp_state3   CMP     #0x03,state         ;check if state3
              JNZ     FSMLoop

@@ -1,0 +1,139 @@
+#include  "BSP.h"
+
+              MODULE LCD
+              PUBLIC  lcd_init, lcd_clr,print_str,lcd_cmd,print_ch
+              EXTERN lcd_col,lcd_row,delay_ret_add
+            
+              RSEG   CODE
+
+//=============================================================         
+lcd_trig  bis.b     #ENctrl, LCD_ERSRW_pin		; ENctrl=1      
+          nop
+          nop
+          bic.b     #ENctrl, LCD_ERSRW_pin		; ENctrl=0
+          ret
+//=============================================================
+;lcd_init  
+
+lcd_init 
+
+          bic.b      #RWctrl + RSctrl + ENctrl, &P1OUT  ; EN='0', RS='0', RW='0'
+          push       #del15ms
+          call       #delay
+          mov.b      #0x3F, LCDsArrPort
+          call       #lcd_trig
+          push       #del5ms
+          call       #delay
+          mov.b      #0x3F, LCDsArrPort
+          call       #lcd_trig
+          push 	     #del200us
+          call       #delay
+          mov.b      #0x3F, LCDsArrPort
+          call       #lcd_trig
+          push       #del5ms
+          call       #delay
+          mov.b      #0x3c, LCDsArrPort
+          call       #lcd_trig
+          push       #del5ms
+          call       #delay
+          mov.b      #0x0F, LCDsArrPort
+          call       #lcd_trig
+          push       #del5ms
+          call       #delay
+          mov.b      #0x01, LCDsArrPort
+          call       #lcd_trig
+          push       #del5ms
+          call       #delay
+          mov.b      #0x06, LCDsArrPort
+          call       #lcd_trig
+          push       #del5ms
+          call       #delay
+          mov.b      #0x80, LCDsArrPort
+          call       #lcd_trig
+          push       #del5ms
+          call       #delay
+          mov.b      #0x02, LCDsArrPort
+          call       #lcd_trig
+          ret       
+
+//=============================================================         
+lcd_clr   push     #0x01                        ; clear LCD
+          call     #lcd_cmd
+          mov.b    #0x00, lcd_row               ; set (lcd_row,lcd_col)=(0,0)
+          mov.b    #0x00, lcd_col               
+          ret
+//=============================================================
+print_str pop	   R12					; R12=return address
+          pop	   R13					; str pointer
+loop	  mov.b    @R13+,R14
+          cmp      #0x00,R14
+          jz	   exit1					; if we get '\0'
+          bis.b    #RSctrl, LCD_ERSRW_pin                      ; RS = '1'
+          push     #del5ms
+          call     #delay
+          mov.b    R14, LCDsArrPort          
+          call     #lcd_trig
+          inc.b    lcd_col
+          cmp.b    #16, lcd_col
+          jlo      loop
+          xor.b    #0x01, lcd_row                       ; lcd_row=0 (first row),lcd_row=1 (second row)
+          mov.b    #0x00, lcd_col
+          tst.b    lcd_row
+          jnz      set_2nd 
+set_1st   push     #0x02                                ; set the lcd pointer to (lcd_row,lcd_col)=(0,0)
+          call     #lcd_cmd         
+          jmp	   loop
+set_2nd   push     #0xC0                                ; set the lcd pointer to (lcd_row,lcd_col)=(1,0)
+          call     #lcd_cmd         
+          jmp	   loop
+exit1     push.w   R12
+          ret
+//=============================================================		  
+print_ch  pop	   R12					; R12=return address
+          pop	   R13					; char         
+          ;cmp.b    #16, lcd_col
+          ;jlo      print
+          ;xor.b    #0x01, lcd_row                       ; lcd_row=0 (first row),lcd_row=1 (second row)
+          ;mov.b    #0x00, lcd_col
+          ;tst.b    lcd_row
+          ;jnz      set1_2nd 
+;set1_1st  push     #0x02                                ; set the lcd pointer to (lcd_row,lcd_col)=(0,0)
+          ;call     #lcd_cmd         
+          ;jmp	   print
+;set1_2nd  push     #0xC0                                ; set the lcd pointer to (lcd_row,lcd_col)=(1,0)
+          ;call     #lcd_cmd                             
+print     bis.b    #RSctrl, LCD_ERSRW_pin                      ; RS = '1'
+          push     #del5ms
+          call     #delay
+          mov.b    R13, LCDsArrPort
+          call     #lcd_trig         
+          inc.b    lcd_col                                               
+          push.w   R12
+          ret
+//=============================================================
+lcd_cmd   pop      R10					; R10=return address
+          pop      R11                                  ; R11=command code
+          bic.b    #RSctrl, LCD_ERSRW_pin                      ; RS = '0'
+          push     #del5ms
+          call     #delay
+          mov.b    R11, LCDsArrPort
+          call     #lcd_trig
+          push.w   R10
+          ret         
+//=============================================================
+delay     pop	   delay_ret_add			; R9=return address
+          pop      &TA0CCR0
+          bis      #MC_1 + TAIE + + TACLR, &TA0CTL
+          bis      #LPM0+GIE, SR
+          push.w   delay_ret_add       
+          ret
+//=============================================================  
+
+
+     
+         
+         ENDMOD
+             END
+
+
+ 
